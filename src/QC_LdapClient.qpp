@@ -1,0 +1,140 @@
+/* -*- mode: c++; indent-tabs-mode: nil -*- */
+/*
+  QC_LdapClient.qpp
+  
+  Qore Programming Language
+  
+  Copyright 2003 - 2012 David Nichols
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+  
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+#include "openldap-module.h"
+
+#include "QoreLdapClient.h"
+
+class LdapClientHolder {
+protected:
+   QoreLdapClient* ldap;
+   ExceptionSink* xsink;
+
+public:
+   DLLLOCAL LdapClientHolder(QoreLdapClient* l, ExceptionSink* xs) : ldap(l), xsink(xs) {
+   }
+
+   DLLLOCAL ~LdapClientHolder() {
+      if (ldap) {
+         ldap->destructor(xsink);
+         ldap->deref(xsink);
+      }
+   }
+
+   DLLLOCAL QoreLdapClient* release() {
+      QoreLdapClient* l = ldap;
+      ldap = 0;
+      return l;
+   }
+};
+
+
+const char* check_hash_key(const QoreHashNode& h, const char* key, const char* err, ExceptionSink *xsink) {
+   const AbstractQoreNode* p = h.getKeyValue(key);
+   if (is_nothing(p))
+      return 0;
+   
+   if (p->getType() != NT_STRING) {
+      xsink->raiseException(err, "'%s' key is not type 'string' but is type '%s'", key, get_type_name(p));
+      return 0;
+   }
+   return reinterpret_cast<const QoreStringNode* >(p)->getBuffer();
+}
+
+//! The LdapClient class 
+/** 
+ */
+qclass LdapClient [arg=QoreLdapClient* ldap; dom=NETWORK];
+
+//! Creates a new LdapClient object
+/** 
+    @par Example:
+    @code
+my LdapClient $ldap("ldaps://ldap.example.com:389");
+    @endcode
+
+    @param uri the URI of the ldap server (ex: \c "ldaps://ldap.example.com")
+    @param bind an optional hash of bind parameters, allowed keys are:
+    - \c xxx:
+
+    @throw LDAP-ERROR an error occurred creating the ldap session context
+ */
+LdapClient::constructor(string uri, *hash bind) {
+   LdapClientHolder ldap(new QoreLdapClient(uri, bind, xsink), xsink);
+   if (!*xsink)
+      self->setPrivate(CID_LDAPCLIENT, ldap.release());
+}
+
+//! unbinds from the LDAP server (if a connection has been established) and destroys the object
+/** @par Example:
+    @code
+delete $ldap;
+    @endcode
+ */
+LdapClient::destructor() {
+   ldap->destructor(xsink);
+   ldap->deref(xsink);
+}
+
+//! Creates a new LdapClient object based on the original
+/** 
+    @par Example:
+    @code
+my LdapClient $ldap2 = $ldap.copy();
+    @endcode
+
+    @throw LDAP-ERROR an error occurred copying the ldap session context
+ */
+LdapClient::copy() {
+   LdapClientHolder ldp(new QoreLdapClient(*ldap, xsink), xsink);
+   if (!*xsink)
+      self->setPrivate(CID_LDAPCLIENT, ldp.release());
+}
+
+//! bind to the server with the given authentication parameters
+/** @par Example:
+    @code
+$ldap.bind($h);
+    @endcode
+
+    @param bind a hash of bind parameters, allowed keys are:
+    - \c xxx:
+
+    @throw LDAP-ERROR an error occurred performing the bind
+ */
+LdapClient::bind(hash bind) {
+   ldap->bind(*bind, xsink);
+}
+
+//! Returns a hash with information about the openldap library
+/** @return a hash with information about the openldap library with the following keys:
+    - \c ApiVersion: the API version number
+    - \c Protocol: the protocol number
+    - \c VendorName: the vendor of the library
+    - \c VendorVersion: the version of the library
+    - \c Extensions: a list of extensions supported (strings)
+    - \c ApiFeature: a hash with a single key; the API feature name, where the value is the feature version
+*/
+static LdapClient::getInfo() [flags=CONSTANT] {
+   return QoreLdapClient::getInfo();
+}
