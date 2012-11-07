@@ -48,6 +48,24 @@ public:
    }
 };
 
+/** @defgroup ldap_scope_constants LDAP Search Scope Constants
+ */
+//@{
+//! limits the search scope to the object itself
+const LDAP_SCOPE_BASE = LDAP_SCOPE_BASE;
+
+//! limits the search scope to the object's immediate children
+const LDAP_SCOPE_ONELEVEL = LDAP_SCOPE_ONELEVEL;
+
+//! limits the search scope to the object and all its descendants
+const LDAP_SCOPE_SUBTREE = LDAP_SCOPE_SUBTREE;
+
+//! limits the search scope to all of the descendants
+/** this option is only supported on LDAP servers that support the LDAP Subordinates Search Scope extension
+ */
+const LDAP_SCOPE_CHILDREN = LDAP_SCOPE_CHILDREN;
+//@}
+
 //! The LdapClient class 
 /** 
  */
@@ -120,29 +138,40 @@ LdapClient::bind(hash bind) {
 //! performs a search on the LDAP server 
 /** @par Example:
     @code
-xxxxxxxxxxx
     @endcode
+my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=*)", "attributes": "uid");
+    @param h a hash of search options with one or more of the following keys:
+    - \c "base": the search base distinguished name for the search (ex: \c "dc=example,dc=com")
+    - \c "filter": the search filter (ex: \c "(objectClass=*)")
+    - \c "attributes": one or more attribute names; if this is present then only the given attributes will be returned
+    - \c "scope": an integer giving the search scope; see @ref ldap_scope_constants for allowed values; note that if this key value is not present then @ref LDAP_SCOPE_SUBTREE is used
+
+    @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
  */
 hash LdapClient::search(hash h) {
    const QoreStringNode* base = check_hash_key<NT_STRING, QoreStringNode>(*h, "base", "LDAP-SEARCH-ERROR", xsink);
    const QoreStringNode* filter = check_hash_key<NT_STRING, QoreStringNode>(*h, "filter", "LDAP-SEARCH-ERROR", xsink);
-   const AbstractQoreNode* attr = h->getKeyValue("attributes");
+   const AbstractQoreNode* n = h->getKeyValue("attributes");
    ReferenceHolder<QoreListNode> attrl(xsink);
-   if (attr) {
-      if (attr->getType() == NT_STRING) {
+   if (n) {
+      if (n->getType() == NT_STRING) {
          attrl = new QoreListNode;
-         attrl->push(attr->refSelf());
+         attrl->push(n->refSelf());
       }
-      else if (attr->getType() == NT_LIST)
-         attrl = reinterpret_cast<const QoreListNode*>(attr)->listRefSelf();
+      else if (n->getType() == NT_LIST)
+         attrl = reinterpret_cast<const QoreListNode*>(n)->listRefSelf();
       else {
-         xsink->raiseException("LDAPCLIENT-SEARCH-ERROR", "the 'attributes' key of the search hash contains type '%s' (expecting 'list' or 'string')", get_type_name(attr));
+         xsink->raiseException("LDAPCLIENT-SEARCH-ERROR", "the 'attributes' key of the search hash contains type '%s' (expecting 'list' or 'string')", get_type_name(n));
          return 0;
       }
    }
 
-   int scope = LDAP_SCOPE_SUBTREE;
-
+   // get scope
+   n = h->getKeyValue("scope");
+   int scope = n ? n->getAsInt() : 0;
+   if (!scope)
+      scope = LDAP_SCOPE_SUBTREE;
+   
    return ldap->search(xsink, base, scope, filter, *attrl);
 }
 
