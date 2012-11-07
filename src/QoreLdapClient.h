@@ -30,7 +30,18 @@
 #include <errno.h>
 #include <string.h>
 
-DLLLOCAL const QoreStringNode* check_hash_key(const QoreHashNode& h, const char* key, const char* err, ExceptionSink *xsink);
+template<int t, typename T>
+DLLLOCAL const T* check_hash_key(const QoreHashNode& h, const char* key, const char* err, ExceptionSink *xsink) {
+   const AbstractQoreNode* p = h.getKeyValue(key);
+   if (is_nothing(p))
+      return 0;
+   
+   if (p->getType() != t) {
+      xsink->raiseException(err, "'%s' key is not type '%s' but is type '%s'", key, T::getStaticTypeName(), get_type_name(p));
+      return 0;
+   }
+   return reinterpret_cast<const T*>(p);
+}
 
 class AttrListHelper {
 protected:
@@ -40,7 +51,7 @@ protected:
 public:
    DLLLOCAL AttrListHelper(const QoreListNode* attrl, ExceptionSink* xsink) : attrs(0), size(0) {
       // convert list to attribute list
-      if (!attrl || !attrl->empty())
+      if (!attrl || attrl->empty())
          return;
       
       size = attrl->size();
@@ -53,6 +64,7 @@ public:
             return;
          attrs[li.index()] = new char[str->size() + 1];
          strcpy(attrs[li.index()], str->getBuffer());
+         //printd(5, "AttrListHelper::AttrListHelper() added %ld: '%s'\n", li.index(), attrs[li.index()]);
       }
       attrs[li.max()] = 0;
    }
@@ -164,11 +176,11 @@ protected:
    DLLLOCAL int bindInitIntern(const char* m, const QoreHashNode& bindh, ExceptionSink* xsink) {
       assert(ldp);
 
-      const QoreStringNode* binddn = check_hash_key(bindh, "binddn", "LDAP-BIND-ERROR", xsink);
+      const QoreStringNode* binddn = check_hash_key<NT_STRING, QoreStringNode>(bindh, "binddn", "LDAP-BIND-ERROR", xsink);
       if (!binddn)
 	 return -1;
 
-      const QoreStringNode* password = check_hash_key(bindh, "password", "LDAP-BIND-ERROR", xsink);
+      const QoreStringNode* password = check_hash_key<NT_STRING, QoreStringNode>(bindh, "password", "LDAP-BIND-ERROR", xsink);
       if (!password)
 	 return -1;
 
@@ -276,7 +288,7 @@ public:
       if (checkLdapError(ldap_search_ext_s(ldp, bstr->empty() ? 0 : bstr->getBuffer(), scope, fstr->empty() ? 0 : fstr->getBuffer(), *attrs, (int)attrsonly, 0, 0, 0, 0, &res), xsink))
          return 0;
       ON_BLOCK_EXIT(ldap_msgfree, res);
-      
+
       ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
       //printd(5, "LdapClient::search() results: %d entries: %d\n", ldap_count_messages(ldp, res), ldap_count_entries(ldp, res));
