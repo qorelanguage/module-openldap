@@ -1,8 +1,14 @@
 #!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
 %new-style
 %enable-all-warnings
 
+# uses the openldap module
 %requires openldap
+
+# ensure minimum version of qore
+%requires qore >= 0.8.7
 
 main();
 
@@ -25,10 +31,12 @@ const opts = (
     "base": "b,basedn=s",
     "scope": "s,scope=s",
     "info": "i,info",
+    "verbose": "v,verbose",
     "help": "h,help",
     );
 
 sub main() {
+    # process command-line options
     GetOpt g(opts);
     hash opts = g.parse3(\ARGV);
     if (opts.help)
@@ -42,7 +50,7 @@ sub main() {
     if (opts.scope) {
 	*int scope = ScopeMap.(opts.scope);
 	if (!exists scope) {
-	    stderr.printf("%s: invalid scope %y (expecing one of %y)", get_script_name(), opts.scope, ScopeMap.keys());
+	    stderr.printf("%s: invalid scope %y (expecting one of %y)", get_script_name(), opts.scope, ScopeMap.keys());
 	    exit(1);
 	}
 	opts.scope = scope;
@@ -62,7 +70,9 @@ sub main() {
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
-    printf("uri: %y, lopt: %y\n", opts.uri, lopt);
+    if (opts.verbose)
+        printf("uri: %y, lopt: %y\n", opts.uri, lopt);
+
     LdapClient ldap(opts.uri, lopt);
 
     printf("%N\n", ldap.search(opts.("base", "filter", "attributes", "scope")));
@@ -74,6 +84,7 @@ sub usage() {
   -D,--binddn=ARG   bind DN
   -H,--uri=ARG      LDAP Uniform Resource Identifier(s)
   -s,--scope=ARG    the search scope, one of base, one, sub, or children
+  -v,--verbose      verbose mode; shows more information
   -w,--passwd=ARG   bind password (for simple authentication)
   -i,--info         show ldap library info and exit
   -h,--help         this help text

@@ -149,8 +149,8 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
     @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
  */
 hash LdapClient::search(hash h) {
-   const QoreStringNode* base = check_hash_key<NT_STRING, QoreStringNode>(*h, "base", "LDAP-SEARCH-ERROR", xsink);
-   const QoreStringNode* filter = check_hash_key<NT_STRING, QoreStringNode>(*h, "filter", "LDAP-SEARCH-ERROR", xsink);
+   const QoreStringNode* base = check_hash_key<QoreStringNode>(*h, "base", "LDAP-SEARCH-ERROR", xsink);
+   const QoreStringNode* filter = check_hash_key<QoreStringNode>(*h, "filter", "LDAP-SEARCH-ERROR", xsink);
    const AbstractQoreNode* n = h->getKeyValue("attributes");
    ReferenceHolder<QoreListNode> attrl(xsink);
    if (n) {
