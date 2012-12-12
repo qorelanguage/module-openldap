@@ -48,16 +48,21 @@ sub main() {
 	opts.scope = scope;
     }
 
-    opts.filter = ARGV[0] ? ARGV[0] : Defaults.filter;
-    opts.attributes = ARGV[1];
+    if (ARGV[0]) {
+	opts.filter = shift ARGV;
+	opts.attributes = ARGV;
+    }
+    else
+	opts.filter = Defaults.filter;
     hash lopt;
-    if (opts.binddn)
-	lopt += ("binddn": opts.binddn);
+    if (opts.bind)
+	lopt += ("binddn": opts.bind);
     if (opts.pass)
-	lopt += ("password": opts.password);
+	lopt += ("password": opts.pass);
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
+    printf("uri: %y, lopt: %y\n", opts.uri, lopt);
     LdapClient ldap(opts.uri, lopt);
 
     printf("%N\n", ldap.search(opts.("base", "filter", "attributes", "scope")));

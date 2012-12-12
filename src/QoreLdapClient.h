@@ -121,10 +121,10 @@ protected:
    QoreHashNode* bh;
 
    void doLdapError(int ec, ExceptionSink* xsink) const {
-      QoreStringNode* desc = new QoreStringNode;
-      desc->sprintf("openldap returned error code %d", ec);
+      QoreStringNode* desc = new QoreStringNode("openldap server ");
       if (uri)
-	 desc->sprintf(" with URI '%s'", uri->getBuffer());
+	 desc->sprintf("'%s' ", uri->getBuffer());
+      desc->sprintf("returned error code %d", ec);
       desc->sprintf(": %s", ldap_err2string(ec));
       xsink->raiseException("LDAP-ERROR", desc);
    }
