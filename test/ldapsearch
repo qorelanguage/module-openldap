@@ -33,6 +33,7 @@ const opts = (
     "info": "i,info",
     "verbose": "v,verbose",
     "timeout": "l,timeout=i",
+    "protocol": "P,protocol=i",
     "help": "h,help",
     );
 
@@ -70,6 +71,8 @@ sub main() {
 	lopt += ("password": opts.pass);
     if (opts.timeout)
         lopt += ("timeout": opts.timeout);
+    if (opts.protocol)
+        lopt += ("protocol": opts.protocol);
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
@@ -83,15 +86,16 @@ sub main() {
 
 sub usage() {
     printf("usage: %s [options] filter
-  -b,--basedn=ARG   base dn for search
-  -D,--binddn=ARG   bind DN
-  -H,--uri=ARG      LDAP Uniform Resource Identifier(s)
-  -l,--timeout=ARG  set timeout in milliseconds (default: %y)
-  -s,--scope=ARG    the search scope, one of 'base', 'one', 'sub', or 'children'
-  -v,--verbose      verbose mode; shows more information
-  -w,--passwd=ARG   bind password (for simple authentication)
-  -i,--info         show ldap library info and exit
-  -h,--help         this help text
+  -b,--basedn=ARG    base dn for search
+  -D,--binddn=ARG    bind DN
+  -H,--uri=ARG       LDAP Uniform Resource Identifier(s)
+  -l,--timeout=ARG   set timeout in milliseconds (default: %y)
+  -P,--protocol=ARG  set protocol version (default: 3)
+  -s,--scope=ARG     the search scope, one of 'base', 'one', 'sub', or 'children'
+  -v,--verbose       verbose mode; shows more information
+  -w,--passwd=ARG    bind password (for simple authentication)
+  -i,--info          show ldap library info and exit
+  -h,--help          this help text
 ", get_script_name(), OpenLdap::DefaultTimeout);
     exit(0);
 }

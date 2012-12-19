@@ -33,6 +33,9 @@
 // default ldap operation timeout in milliseconds
 #define QORE_LDAP_DEFAULT_TIMEOUT_MS 60000
 
+// default ldap protocol version
+#define QORE_LDAP_DEFAULT_PROTOCOL 3
+
 template<typename T>
 DLLLOCAL const T* check_hash_key(const QoreHashNode& h, const char* key, const char* err, ExceptionSink *xsink) {
    const AbstractQoreNode* p = h.getKeyValue(key);
@@ -179,21 +182,20 @@ protected:
       return initIntern(xsink);
    }
 
-   DLLLOCAL int initIntern(const QoreStringNode& uristr, ExceptionSink* xsink) {
+   DLLLOCAL int initIntern(ExceptionSink* xsink, const QoreStringNode& uristr, int iv = QORE_LDAP_DEFAULT_PROTOCOL) {
       assert(!ldp);
       assert(!uri);
       uri = uristr.stringRefSelf();
-      return initIntern(xsink);
+      return initIntern(xsink, iv);
    }
 
-   DLLLOCAL int initIntern(ExceptionSink* xsink) {
+   DLLLOCAL int initIntern(ExceptionSink* xsink, int iv = QORE_LDAP_DEFAULT_PROTOCOL) {
       if (checkLdapError("ldap_initialize", ldap_initialize(&ldp, uri->getBuffer()), xsink))
 	 return -1;
 
-      // set protocol version 3
-      int iv = 3;
+      // set protocol version
       if (ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &iv)) {
-	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP protocol v3; ldap_set_option(LDAP_OPT_PROTOCOL_VERSION) failed");
+	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP protocol v%d; ldap_set_option(LDAP_OPT_PROTOCOL_VERSION) failed", iv);
 	 return -1;
       }
 
@@ -249,7 +251,13 @@ protected:
 public:
    DLLLOCAL QoreLdapClient(const QoreStringNode* uristr, const QoreHashNode* opth, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {
       //printd(5, "QoreLdapClient::QoreLdapClient() this: %p uri: '%s' opth: %p\n", this, uristr->getBuffer(), opth);
-      if (initIntern(*uristr, xsink))
+
+      const AbstractQoreNode* p = opth->getKeyValue("protocol");
+      int iv = p ? p->getAsInt() : 0;
+      if (!iv)
+         iv = QORE_LDAP_DEFAULT_PROTOCOL;
+
+      if (initIntern(xsink, *uristr, iv))
 	 return;
       if (opth) {
          bindInitIntern(xsink, "constructor", *opth);
@@ -266,7 +274,7 @@ public:
             xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
             return;
          }
-         printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
+         //printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
       }
       
    }
@@ -276,7 +284,13 @@ public:
       if (old.checkValidIntern("constructor", xsink))
 	 return;
 
-      if (initIntern(*old.uri, xsink))
+      // get protocol version
+      int iv = 0;
+      ldap_get_option(old.ldp, LDAP_OPT_PROTOCOL_VERSION, &iv);
+      if (!iv)
+         iv = QORE_LDAP_DEFAULT_PROTOCOL;
+
+      if (initIntern(xsink, *old.uri, iv))
 	 return;
 
       if (old.bh && bindInitIntern(xsink, "copy", *old.bh))
