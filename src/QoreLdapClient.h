@@ -30,6 +30,9 @@
 #include <errno.h>
 #include <string.h>
 
+// default ldap operation timeout in milliseconds
+#define QORE_LDAP_DEFAULT_TIMEOUT_MS 60000
+
 template<typename T>
 DLLLOCAL const T* check_hash_key(const QoreHashNode& h, const char* key, const char* err, ExceptionSink *xsink) {
    const AbstractQoreNode* p = h.getKeyValue(key);
@@ -244,12 +247,28 @@ protected:
    }
 
 public:
-   DLLLOCAL QoreLdapClient(const QoreStringNode* uristr, const QoreHashNode* bindh, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {
-      //printd(5, "QoreLdapClient::QoreLdapClient() this: %p uri: '%s' bindh: %p\n", this, uristr->getBuffer(), bindh);
+   DLLLOCAL QoreLdapClient(const QoreStringNode* uristr, const QoreHashNode* opth, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {
+      //printd(5, "QoreLdapClient::QoreLdapClient() this: %p uri: '%s' opth: %p\n", this, uristr->getBuffer(), opth);
       if (initIntern(*uristr, xsink))
 	 return;
-      if (bindh && bindInitIntern(xsink, "constructor", *bindh))
-	 return;
+      if (opth) {
+         bindInitIntern(xsink, "constructor", *opth);
+         if (*xsink)
+            return;
+
+         int timeout_ms = getMsZeroInt(opth->getKeyValue("timeout"));
+         if (!timeout_ms)
+            timeout_ms = QORE_LDAP_DEFAULT_TIMEOUT_MS;
+
+         TimeoutHelper timeout(timeout_ms);
+
+         if (ldap_set_option(ldp, LDAP_OPT_TIMEOUT, &timeout)) {
+            xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
+            return;
+         }
+         printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
+      }
+      
    }
    
    DLLLOCAL QoreLdapClient(const QoreLdapClient& old, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {

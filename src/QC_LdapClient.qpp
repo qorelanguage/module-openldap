@@ -51,6 +51,8 @@ public:
 /** @defgroup ldap_scope_constants LDAP Search Scope Constants
  */
 //@{
+namespace OpenLdap;
+
 //! limits the search scope to the object itself
 const LDAP_SCOPE_BASE = LDAP_SCOPE_BASE;
 
@@ -66,6 +68,15 @@ const LDAP_SCOPE_SUBTREE = LDAP_SCOPE_SUBTREE;
 const LDAP_SCOPE_CHILDREN = LDAP_SCOPE_CHILDREN;
 //@}
 
+/** @defgroup ldap_constants LDAP Constants
+ */
+//@{
+namespace OpenLdap;
+
+//! the default timeout value
+const DefaultTimeout = 60s;
+//@}
+
 //! The LdapClient class 
 /** 
  */
@@ -79,14 +90,15 @@ my LdapClient $ldap("ldaps://ldap.example.com:389");
     @endcode
 
     @param uri the URI of the ldap server (ex: \c "ldaps://ldap.example.com")
-    @param bind an optional hash of bind parameters, allowed keys are:
+    @param options an optional hash of optional parameters, allowed keys are:
     - \c binddn: the dinstinguished name to use to bind to the LDAP server
     - \c password: the password to use for the connection
+    - \c timeout: the default timeout for ldap operations; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
     @throw LDAP-ERROR an error occurred creating the ldap session context
  */
-LdapClient::constructor(string uri, *hash bind) {
-   LdapClientHolder ldap(new QoreLdapClient(uri, bind, xsink), xsink);
+LdapClient::constructor(string uri, *hash options) {
+   LdapClientHolder ldap(new QoreLdapClient(uri, options, xsink), xsink);
    if (!*xsink)
       self->setPrivate(CID_LDAPCLIENT, ldap.release());
 }

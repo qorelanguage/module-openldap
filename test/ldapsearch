@@ -32,6 +32,7 @@ const opts = (
     "scope": "s,scope=s",
     "info": "i,info",
     "verbose": "v,verbose",
+    "timeout": "l,timeout=i",
     "help": "h,help",
     );
 
@@ -67,6 +68,8 @@ sub main() {
 	lopt += ("binddn": opts.bind);
     if (opts.pass)
 	lopt += ("password": opts.pass);
+    if (opts.timeout)
+        lopt += ("timeout": opts.timeout);
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
@@ -83,11 +86,12 @@ sub usage() {
   -b,--basedn=ARG   base dn for search
   -D,--binddn=ARG   bind DN
   -H,--uri=ARG      LDAP Uniform Resource Identifier(s)
-  -s,--scope=ARG    the search scope, one of base, one, sub, or children
+  -l,--timeout=ARG  set timeout in milliseconds (default: %y)
+  -s,--scope=ARG    the search scope, one of 'base', 'one', 'sub', or 'children'
   -v,--verbose      verbose mode; shows more information
   -w,--passwd=ARG   bind password (for simple authentication)
   -i,--info         show ldap library info and exit
   -h,--help         this help text
-", get_script_name());
+", get_script_name(), OpenLdap::DefaultTimeout);
     exit(0);
 }
