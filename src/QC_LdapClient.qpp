@@ -68,6 +68,20 @@ const LDAP_SCOPE_SUBTREE = LDAP_SCOPE_SUBTREE;
 const LDAP_SCOPE_CHILDREN = LDAP_SCOPE_CHILDREN;
 //@}
 
+/** @defgroup ldap_modify_constants LDAP Modify Constants
+ */
+//@{
+namespace OpenLdap;
+//! for adding an entry
+const LDAP_MOD_ADD = "add";
+
+//! for deleting an entry
+const LDAP_MOD_DELETE = "delete";
+
+//! for replacing an entry
+const LDAP_MOD_REPLACE = "replace";
+//@}
+
 /** @defgroup ldap_constants LDAP Constants
  */
 //@{
@@ -161,8 +175,8 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
     @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
  */
 hash LdapClient::search(hash h) {
-   const QoreStringNode* base = check_hash_key<QoreStringNode>(*h, "base", "LDAP-SEARCH-ERROR", xsink);
-   const QoreStringNode* filter = check_hash_key<QoreStringNode>(*h, "filter", "LDAP-SEARCH-ERROR", xsink);
+   const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
+   const QoreStringNode* filter = check_hash_key<QoreStringNode>(xsink, *h, "filter", "LDAP-SEARCH-ERROR");
    const AbstractQoreNode* n = h->getKeyValue("attributes");
    ReferenceHolder<QoreListNode> attrl(xsink);
    if (n) {

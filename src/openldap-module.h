@@ -30,4 +30,25 @@
 
 #include <ldap.h>
 
+#include <map>
+#include <string>
+
+typedef std::map<std::string, int> strintmap_t;
+
+class ModMap : public strintmap_t {
+public:
+   DLLLOCAL ModMap() {
+      insert(ModMap::value_type("add", LDAP_MOD_ADD));
+      insert(ModMap::value_type("delete", LDAP_MOD_DELETE));
+      insert(ModMap::value_type("replace", LDAP_MOD_REPLACE));
+   }
+
+   DLLLOCAL int get(const char* mod) const {
+      const ModMap::const_iterator i = find(mod);
+      return i == end() ? -1 : i->second;
+   }
+};
+
+DLLLOCAL extern ModMap modmap;
+
 #endif

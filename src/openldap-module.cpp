@@ -42,6 +42,9 @@ DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 
 DLLLOCAL QoreClass* initLdapClientClass(QoreNamespace& ns);
 
+// modify action map
+ModMap modmap;
+
 static QoreNamespace OLNS("OpenLdap");
 
 static QoreStringNode* openldap_module_init() {
