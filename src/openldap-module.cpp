@@ -45,12 +45,20 @@ DLLLOCAL QoreClass* initLdapClientClass(QoreNamespace& ns);
 static QoreNamespace OLNS("OpenLdap");
 
 static QoreStringNode* openldap_module_init() {
+   // cannot safely load the openldap module if openssl cleanup is performed externally
+   if (qore_check_option(QLO_DISABLE_OPENSSL_CLEANUP))
+      return new QoreStringNode("cannot load the openldap module because QLO_DISABLE_OPENSSL_CLEANUP has already been set and the openldap module also performs openssl library cleanup which would lead to a crash on shutdown");
+
+   // this also serves to initialize the library in a single-threaded way
    QoreStringNode* err = QoreLdapClient::checkLibrary();
    if (err)
       return err;
 
    OLNS.addSystemClass(initLdapClientClass(OLNS));
 
+   // make sure and disable openssl cleanup when unloading the module since the openldap library will perform it
+   // doing it twice can cause a segfault
+   qore_set_library_cleanup_options(QLO_DISABLE_OPENSSL_CLEANUP);
    return 0;
 }
 
