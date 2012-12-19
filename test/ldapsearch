@@ -26,16 +26,19 @@ const ScopeMap = (
 
 const opts = (
     "uri": "H,uri=s",
-    "bind": "D,binddn=s",
-    "pass": "w,passwd=s",
+    "binddn": "D,binddn=s",
+    "password": "w,passwd=s",
     "base": "b,basedn=s",
     "scope": "s,scope=s",
     "info": "i,info",
     "verbose": "v,verbose",
     "timeout": "l,timeout=i",
     "protocol": "P,protocol=i",
+    "no-referrals": "r,no-referrals",
     "help": "h,help",
     );
+
+const LdapOptions = ("binddn", "password", "base", "timeout", "protocol", "no-referrals");
 
 sub main() {
     # process command-line options
@@ -64,15 +67,7 @@ sub main() {
     }
     else
 	opts.filter = Defaults.filter;
-    hash lopt;
-    if (opts.bind)
-	lopt += ("binddn": opts.bind);
-    if (opts.pass)
-	lopt += ("password": opts.pass);
-    if (opts.timeout)
-        lopt += ("timeout": opts.timeout);
-    if (opts.protocol)
-        lopt += ("protocol": opts.protocol);
+    hash lopt = opts{LdapOptions};
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
@@ -91,6 +86,7 @@ sub usage() {
   -H,--uri=ARG       LDAP Uniform Resource Identifier(s)
   -l,--timeout=ARG   set timeout in milliseconds (default: %y)
   -P,--protocol=ARG  set protocol version (default: 3)
+  -r,--no-referrals  do not chase referrals
   -s,--scope=ARG     the search scope, one of 'base', 'one', 'sub', or 'children'
   -v,--verbose       verbose mode; shows more information
   -w,--passwd=ARG    bind password (for simple authentication)

@@ -199,6 +199,12 @@ protected:
 	 return -1;
       }
 
+      // set restart option
+      if (ldap_set_option(ldp, LDAP_OPT_RESTART, LDAP_OPT_ON)) {
+	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP restart option; ldap_set_option(LDAP_OPT_RESTART) failed");
+	 return -1;
+      }
+
       return 0;
    }
 
@@ -274,6 +280,14 @@ public:
             xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
             return;
          }
+
+         p = opth->getKeyValue("no-referrals");
+         bool refp = p ? p->getAsBool() : 0;
+         if (refp && ldap_set_option(ldp, LDAP_OPT_REFERRALS, LDAP_OPT_OFF)) {
+            xsink->raiseException("LDAP-ERROR", "failed to disable LDAP referrals; ldap_set_option(LDAP_OPT_REFERRALS) failed");
+            return;
+         }
+
          //printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
       }
       
