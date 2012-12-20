@@ -171,14 +171,14 @@ public:
          if (mod_bvalues) {
             for (berval** p = mod_bvalues; *p; ++p)
                delete [] *p;
-            delete mod_bvalues;
+            delete [] mod_bvalues;
          }
       }
       else {
          if (mod_values) {
             for (char** p = mod_values; *p; ++p)
                delete [] *p;
-            delete mod_values;
+            delete [] mod_values;
          }
       }
    }
