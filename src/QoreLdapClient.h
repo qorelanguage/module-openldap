@@ -87,12 +87,6 @@ protected:
 
 public:
    DLLLOCAL virtual ~LdapListHelper() {
-      if (!l)
-         return;
-      
-      for (unsigned i = 0; i < len; ++i)
-         delete l[i];
-      delete [] l;
    }
 
    DLLLOCAL T* operator*() const {
@@ -119,6 +113,15 @@ protected:
 public:
    DLLLOCAL AttrListHelper(const QoreListNode* attrl, ExceptionSink* xsink) : LdapListHelper<char*>() {
       init(attrl, xsink);
+   }
+
+   DLLLOCAL virtual ~AttrListHelper() {
+      if (!l)
+         return;
+      
+      for (unsigned i = 0; i < len; ++i)
+         delete [] l[i];
+      delete [] l;
    }
 };
 
@@ -211,6 +214,15 @@ protected:
 public:
    DLLLOCAL ModListHelper(const QoreListNode* ql, ExceptionSink* xsink) : LdapListHelper<QoreLDAPMod*>() {
       init(ql, xsink);
+   }
+
+   DLLLOCAL virtual ~ModListHelper() {
+      if (!l)
+         return;
+      
+      for (unsigned i = 0; i < len; ++i)
+         delete l[i];
+      delete [] l;
    }
 };
 
