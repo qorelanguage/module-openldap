@@ -14,22 +14,13 @@ main();
 
 const Defaults = (
     "uri": "ldap://localhost:389",
-    "filter": "objectClass=*",
-    );
-
-const ScopeMap = (
-    "base": LDAP_SCOPE_BASE,
-    "one": LDAP_SCOPE_ONELEVEL,
-    "sub": LDAP_SCOPE_SUBTREE,
-    "children": LDAP_SCOPE_CHILDREN,
     );
 
 const opts = (
-    # search
-    "base": "b,basedn=s",
-    "scope": "s,scope=s",
+    # modify
+    "add": "a,add",
 
-    #common
+    # common
     "uri": "H,uri=s",
     "binddn": "D,binddn=s",
     "password": "w,passwd=s",
@@ -55,38 +46,51 @@ sub main() {
 	exit(0);
     }
 
-    if (opts.scope) {
-	*int scope = ScopeMap.(opts.scope);
-	if (!exists scope) {
-	    stderr.printf("%s: invalid scope %y (expecting one of %y)\n", get_script_name(), opts.scope, ScopeMap.keys());
-	    exit(1);
-	}
-	opts.scope = scope;
+    *string dn = shift ARGV;
+    if (!dn) {
+        stderr.printf("%s: missing dn to modify\n", get_script_name());
+        exit(1);
     }
 
-    if (ARGV[0]) {
-	opts.filter = shift ARGV;
-	opts.attributes = ARGV;
-    }
-    else
-	opts.filter = Defaults.filter;
-    hash lopt = opts{LdapOptions};
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
+    string mod = opts.add ? LDAP_MOD_ADD : LDAP_MOD_REPLACE;
+
+    # get modification argument list
+    list mods = ();
+    while (ARGV) {
+        *string attr = shift ARGV;
+        if (!attr) {
+            stderr.printf("%s: missing attribute to modify in argument %d (starting with 0)\n", get_script_name(), mods.size());
+            exit(1);
+        }
+        *string value = shift ARGV;
+        if (!value) {
+            stderr.printf("%s: missing attribute value in argument %d (starting with 0)\n", get_script_name(), mods.size());
+            exit(1);
+        }
+
+        mods += (
+            "mod": mod,
+            "attr": attr,
+            "value": value,
+            );
+    }
+
+    hash lopt = opts{LdapOptions};
+
     if (opts.verbose)
-        printf("uri: %y, lopt: %y\n", opts.uri, lopt);
+        printf("uri: %y, lopt: %y, dn: %y, mods: %y\n", opts.uri, lopt, dn, mods);
 
     LdapClient ldap(opts.uri, lopt);
-
-    printf("%N\n", ldap.search(opts.("base", "filter", "attributes", "scope")));
+    ldap.modify(dn, mods);
 }
 
 sub usage() {
-    printf("usage: %s [options] filter
-Search Options:
-  -b,--basedn=ARG    base dn for search
-  -s,--scope=ARG     the search scope, one of 'base', 'one', 'sub', or 'children'
+    printf("usage: %s [options] <dn> <attr> <value> [<attr> <value> ...]
+Modify Options:
+  -a,--add           add values (default is to replace)
 
 Common LDAP Options:
   -D,--binddn=ARG    bind DN

@@ -155,6 +155,8 @@ $ldap.bind($h);
     - \c binddn: the dinstinguished name to use to bind to the LDAP server
     - \c password: the password to use for the connection
 
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-BIND-ERROR parameter type error or 'password' given with no 'binddn' value
     @throw LDAP-ERROR an error occurred performing the bind
  */
 LdapClient::bind(hash bind) {
@@ -173,6 +175,9 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
     - \c "scope": an integer giving the search scope; see @ref ldap_scope_constants for allowed values; note that if this key value is not present then @ref LDAP_SCOPE_SUBTREE is used
 
     @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ERROR an error occurred performing the search
  */
 hash LdapClient::search(hash h) {
    const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
@@ -199,6 +204,21 @@ hash LdapClient::search(hash h) {
       scope = LDAP_SCOPE_SUBTREE;
    
    return ldap->search(xsink, base, scope, filter, *attrl);
+}
+
+//! ldap modify
+/** @param dn the distinguished name of the entry to modify
+    @param mods a hash or list of hashes of modifications to make; each hash is made up of the following keys:
+    - \c mod: a modification action; see @ref ldap_modify_constants for possible values
+    - \c attr: the attribute to modify
+    - [\c value]: the value to add or replace 
+    
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-MODIFY-ERROR invalid mod hash format
+    @throw LDAP-ERROR an error occurred performing the search
+*/
+nothing LdapClient::modify(string dn, softlist mods) {
+   ldap->modify(xsink, dn, mods);
 }
 
 //! returns the URI string used to connect to the LDAP server
