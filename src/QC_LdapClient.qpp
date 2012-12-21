@@ -206,7 +206,19 @@ hash LdapClient::search(hash h) {
    return ldap->search(xsink, base, scope, filter, *attrl);
 }
 
-//! ldap modify
+//! add ldap an entry and attributes
+/** @param dn the distinguished name of the entry to add
+    @param attrs a hash of new attributes; the keys are attribute names and the values are the attribute values
+    
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ADD-ERROR missing attribute value
+    @throw LDAP-ERROR an error occurred performing the modify operation
+*/
+nothing LdapClient::add(string dn, hash attrs) {
+   ldap->add(xsink, dn, attrs);
+}
+
+//! modify (add, replace, delete) ldap attributes
 /** @param dn the distinguished name of the entry to modify
     @param mods a hash or list of hashes of modifications to make; each hash is made up of the following keys:
     - \c mod: a modification action; see @ref ldap_modify_constants for possible values
@@ -214,11 +226,21 @@ hash LdapClient::search(hash h) {
     - [\c value]: the value to add or replace 
     
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
-    @throw LDAP-MODIFY-ERROR invalid mod hash format
-    @throw LDAP-ERROR an error occurred performing the search
+    @throw LDAP-MODIFY-ERROR invalid mod hash format; missing value for add or replace operation
+    @throw LDAP-ERROR an error occurred performing the modify operation
 */
 nothing LdapClient::modify(string dn, softlist mods) {
    ldap->modify(xsink, dn, mods);
+}
+
+//! delete ldap entries
+/** @param dn the distinguished name of the entry to delete
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ERROR an error occurred performing the delete operation
+ */
+nothing LdapClient::del(string dn) {
+   ldap->del(xsink, dn);
 }
 
 //! returns the URI string used to connect to the LDAP server

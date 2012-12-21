@@ -76,7 +76,7 @@ protected:
       ConstListIterator li(ql);
       while (li.next()) {
          if (addElement(li, xsink)) {
-            len = li.index() + 1;
+            len = li.index();
             return -1;
          }
       }
@@ -124,10 +124,13 @@ public:
 
 class QoreLDAPMod : public LDAPMod {
 protected:
-   DLLLOCAL int assignString(qore_size_t i, const AbstractQoreNode* p, ExceptionSink* xsink) {
+   DLLLOCAL int assignString(qore_size_t i, const AbstractQoreNode* p, const char* err, ExceptionSink* xsink) {
       QoreStringValueHelper str(p, QCS_UTF8, xsink);
       if (*xsink)
          return -1;
+
+      if (mod_op != LDAP_MOD_DELETE && str->empty())
+         return missingValueError(err, xsink);
 
       mod_values[i] = new char[str->size() + 1];
       strcpy(mod_values[i], str->getBuffer());
@@ -135,25 +138,35 @@ protected:
       //printd(5, "QoreLDAPMod::assignString() this: %p value[%zd]: '%s'\n", this, i, mod_values[i] ? mod_values[i] : "n/a");
       return 0;
    }
+
+   DLLLOCAL int missingValueError(const char* err, ExceptionSink* xsink) const {
+      xsink->raiseException("LDAP-MODIFY-ERROR", "missing value for '%s' operation for attribute '%s'", mod_op == LDAP_MOD_ADD ? "add" : "replace", mod_type);
+      return -1;
+   }
    
 public: 
-   DLLLOCAL QoreLDAPMod(int n_mod_op, const char* attr, const AbstractQoreNode* p, ExceptionSink* xsink) {
+   DLLLOCAL QoreLDAPMod(int n_mod_op, const char* attr, const AbstractQoreNode* p, const char* err, ExceptionSink* xsink) {
       mod_op = n_mod_op;
       mod_type = (char*)attr;
       mod_values = 0;
 
       qore_type_t t = get_node_type(p);
-      if (t == NT_NOTHING)
+      if (t == NT_NOTHING) {
+         if (mod_op != LDAP_MOD_DELETE)
+            missingValueError(err, xsink);
          return;
+      }
 
       if (t == NT_LIST) {
          const QoreListNode* l = reinterpret_cast<const QoreListNode*>(p);
          if (l->empty())
             return;
 
+         mod_values = new char*[l->size() + 1];
+
          ConstListIterator li(l);
          while (li.next()) {
-            if (assignString(li.index(), li.getValue(), xsink)) {
+            if (assignString(li.index(), li.getValue(), err, xsink)) {
                mod_values[li.index() + 1] = 0;
                return;
             }
@@ -161,7 +174,7 @@ public:
       }
       else {
          mod_values = new char*[2];
-         assignString(0, p, xsink);
+         assignString(0, p, err, xsink);
          mod_values[1] = 0;
       }
    }
@@ -186,6 +199,8 @@ public:
 
 class ModListHelper : public LdapListHelper<QoreLDAPMod*> {
 protected:
+   bool op_add;
+
    DLLLOCAL virtual int addElement(const ConstListIterator& li, ExceptionSink* xsink) {
       const AbstractQoreNode* p = li.getValue();
       if (get_node_type(p) != NT_HASH) {
@@ -193,6 +208,7 @@ protected:
          return -1;
       }
       const QoreHashNode* h = reinterpret_cast<const QoreHashNode*>(p);
+
       const QoreStringNode* mod = check_hash_key<QoreStringNode>(xsink, *h, "mod", "LDAP-MODIFY-ERROR", "ldap modification hash");
       if (!mod)
          return -1;
@@ -202,21 +218,32 @@ protected:
          xsink->raiseException("LDAP-MODIFY-ERROR", "element %d/%d (starting with 0) don't know how to process modification action '%s' (expecting one of 'add', 'delete', 'replace')", li.index(), li.max(), mod->getBuffer());
          return -1;
       }
-
+      
       const QoreStringNode* attr = check_hash_key<QoreStringNode>(xsink, *h, "attr", "LDAP-MODIFY-ERROR", "ldap modification hash");
       if (!attr)
          return -1;
 
       p = h->getKeyValue("value");
 
-      QoreLDAPMod*& e = l[li.index()];
-      e = new QoreLDAPMod(mod_op, attr->getBuffer(), p, xsink);
+      std::auto_ptr<QoreLDAPMod> modp(new QoreLDAPMod(mod_op, attr->getBuffer(), p, "LDAP-MODIFY-ERROR", xsink));
+      if (*xsink)
+         return -1;
 
-      return *xsink ? -1 : 0;
+      l[li.index()] = modp.release();
+      return 0;
+   }
+
+   DLLLOCAL virtual int addElement(size_t index, const ConstHashIterator& hi, ExceptionSink* xsink) {
+      std::auto_ptr<QoreLDAPMod> mod(new QoreLDAPMod(LDAP_MOD_ADD, hi.getKey(), hi.getValue(), "LDAP-ADD-ERROR", xsink));
+      if (*xsink)
+         return -1;
+
+      l[index] = mod.release();
+      return 0;
    }
    
 public:
-   DLLLOCAL ModListHelper(const QoreListNode* ql, ExceptionSink* xsink) : LdapListHelper<QoreLDAPMod*>() {
+   DLLLOCAL ModListHelper(ExceptionSink* xsink, const QoreListNode* ql) : LdapListHelper<QoreLDAPMod*>(), op_add(false) {
       init(ql, xsink);
 
 #if 0
@@ -229,6 +256,28 @@ public:
          }
       }
 #endif
+   }
+
+   DLLLOCAL ModListHelper(ExceptionSink* xsink, const QoreHashNode* attr) : LdapListHelper<QoreLDAPMod*>(), op_add(true) {
+      // convert list to attribute list
+      if (!attr || attr->empty())
+         return;
+
+      len = attr->size();
+
+      l = new QoreLDAPMod*[attr->size() + 1];
+      ConstHashIterator hi(attr);
+      size_t index = 0;
+      while (hi.next()) {
+         if (addElement(index, hi, xsink)) {
+            len = index;
+            return;
+         }
+         ++index;
+      }
+      // terminate list with a 0
+      l[index] = 0;
+      return;
    }
 
    DLLLOCAL virtual ~ModListHelper() {
@@ -534,33 +583,6 @@ public:
       return bindInitIntern(xsink, "bind", bindh);
    }
 
-   DLLLOCAL int modify(ExceptionSink* xsink, const QoreStringNode* dn, const QoreListNode* ml, int timeout_ms = -1) {
-      // convert strings to UTF-8 if necessary
-      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
-      if (*xsink)
-         return -1;
-      
-      ModListHelper mods(ml, xsink);
-      if (*xsink)
-         return -1;
-
-      AutoLocker al(m);
-      if (checkValidIntern("modify", xsink))
-	 return -1;
-
-      int msgid;
-      if (checkLdapError("modify", "ldap_modify_ext", ldap_modify_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), (LDAPMod**)*mods, 0, 0, &msgid), xsink))
-         return -1;
-
-      LDAPMessage* res = 0;
-      TimeoutHelper timeout(timeout_ms);
-
-      if (checkLdapResult("modify", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
-         return -1;
-
-      return checkFreeResult("modify", "ldap_modify_ext", res, xsink);
-   }
-
    DLLLOCAL QoreHashNode* search(ExceptionSink* xsink, const QoreStringNode* base, int scope, const QoreStringNode* filter, const QoreListNode* attrl = 0, bool attrsonly = false, int timeout_ms = -1) {
       // convert strings to UTF-8 if necessary
       QoreStringValueHelper bstr(base, QCS_UTF8, xsink);
@@ -647,6 +669,81 @@ public:
       }
 
       return h.release();
+   }
+
+   DLLLOCAL int add(ExceptionSink* xsink, const QoreStringNode* dn, const QoreHashNode* attr, int timeout_ms = -1) {
+      // convert strings to UTF-8 if necessary
+      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+      
+      ModListHelper mods(xsink, attr);
+      if (*xsink)
+         return -1;
+
+      AutoLocker al(m);
+      if (checkValidIntern("add", xsink))
+	 return -1;
+
+      int msgid;
+      if (checkLdapError("add", "ldap_add_ext", ldap_add_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), (LDAPMod**)*mods, 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(timeout_ms);
+
+      if (checkLdapResult("add", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+         return -1;
+
+      return checkFreeResult("add", "ldap_add_ext", res, xsink);
+   }
+
+   DLLLOCAL int modify(ExceptionSink* xsink, const QoreStringNode* dn, const QoreListNode* ml, int timeout_ms = -1) {
+      // convert strings to UTF-8 if necessary
+      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+      
+      ModListHelper mods(xsink, ml);
+      if (*xsink)
+         return -1;
+
+      AutoLocker al(m);
+      if (checkValidIntern("modify", xsink))
+	 return -1;
+
+      int msgid;
+      if (checkLdapError("modify", "ldap_modify_ext", ldap_modify_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), (LDAPMod**)*mods, 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(timeout_ms);
+
+      if (checkLdapResult("modify", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+         return -1;
+
+      return checkFreeResult("modify", "ldap_modify_ext", res, xsink);
+   }
+
+   DLLLOCAL int del(ExceptionSink* xsink, const QoreStringNode* dn, int timeout_ms = -1) {
+      // convert strings to UTF-8 if necessary
+      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      int msgid;
+      if (checkLdapError("del", "ldap_delete_ext", ldap_delete_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(timeout_ms);
+
+      if (checkLdapResult("del", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+         return -1;
+
+      return checkFreeResult("del", "ldap_delete_ext", res, xsink);
+
+      return 0;
    }
 
    DLLLOCAL QoreStringNode* getUriStr() const {

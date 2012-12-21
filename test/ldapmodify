@@ -19,6 +19,7 @@ const Defaults = (
 const opts = (
     # modify
     "add": "a,add",
+    "del": "x,delete",
 
     # common
     "uri": "H,uri=s",
@@ -55,7 +56,18 @@ sub main() {
     if (!opts.uri)
 	opts.uri = Defaults.uri;
 
-    string mod = opts.add ? LDAP_MOD_ADD : LDAP_MOD_REPLACE;
+    string mod;
+    if (opts.add) {
+        if (opts.del) {
+            stderr.printf("%s: can't use both -a (add) and -x (delete) options together\n", get_script_name());
+            exit(1);
+        }
+        mod = LDAP_MOD_ADD;
+    }
+    else if (opts.del)
+        mod = LDAP_MOD_DELETE;
+    else
+        mod = LDAP_MOD_REPLACE;
 
     # get modification argument list
     list mods = ();
@@ -70,6 +82,8 @@ sub main() {
             stderr.printf("%s: missing attribute value in argument %d (starting with 0)\n", get_script_name(), mods.size());
             exit(1);
         }
+        if (opts.del && value == "-")
+            delete value;
 
         mods += (
             "mod": mod,
@@ -91,6 +105,8 @@ sub usage() {
     printf("usage: %s [options] <dn> <attr> <value> [<attr> <value> ...]
 Modify Options:
   -a,--add           add values (default is to replace)
+  -x,--delete        delete values (default is to replace); to delete the
+                     entire attribute (all values); use '-' as the value
 
 Common LDAP Options:
   -D,--binddn=ARG    bind DN

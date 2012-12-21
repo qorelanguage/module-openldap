@@ -1,0 +1,84 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%enable-all-warnings
+
+# uses the openldap module
+%requires openldap
+
+# ensure minimum version of qore
+%requires qore >= 0.8.7
+
+main();
+
+const Defaults = (
+    "uri": "ldap://localhost:389",
+    );
+
+const opts = (
+    # common
+    "uri": "H,uri=s",
+    "binddn": "D,binddn=s",
+    "password": "w,passwd=s",
+    "info": "i,info",
+    "verbose": "v,verbose",
+    "timeout": "l,timeout=i",
+    "protocol": "P,protocol=i",
+    "no-referrals": "r,no-referrals",
+    "help": "h,help",
+    );
+
+const LdapOptions = ("binddn", "password", "base", "timeout", "protocol", "no-referrals");
+
+sub main() {
+    # process command-line options
+    GetOpt g(opts);
+    hash opts = g.parse3(\ARGV);
+    if (opts.help)
+	usage();
+
+    if (opts.info) {
+	printf("%N\n", LdapClient::getInfo());
+	exit(0);
+    }
+
+    *string dn = shift ARGV;
+    if (!dn)
+        error("missing dn to delete");
+
+    if (!opts.uri)
+	opts.uri = Defaults.uri;
+
+    hash lopt = opts{LdapOptions};
+
+    if (opts.verbose)
+        printf("uri: %y, lopt: %y, dn: %y\n", opts.uri, lopt, dn);
+
+    LdapClient ldap(opts.uri, lopt);
+    ldap.del(dn);
+}
+
+sub error(string fmt) {
+    fmt = sprintf("%s: %s\n", get_script_name(), fmt);
+    stderr.vprintf(fmt, argv);
+    exit(1);
+}
+
+sub usage() {
+    printf("usage: %s [options] <dn> <attr>=<value> [<attr>=<value> ...]
+Common LDAP Options:
+  -D,--binddn=ARG    bind DN
+  -H,--uri=ARG       LDAP Uniform Resource Identifier(s)
+  -l,--timeout=ARG   set timeout in milliseconds (default: %y)
+  -P,--protocol=ARG  set protocol version (default: 3)
+  -r,--no-referrals  do not chase referrals
+  -v,--verbose       verbose mode; shows more information
+  -w,--passwd=ARG    bind password (for simple authentication)
+
+Other Options:
+  -i,--info          show ldap library info and exit
+  -h,--help          this help text
+", get_script_name(), OpenLdap::DefaultTimeout);
+    exit(0);
+}
