@@ -1,4 +1,4 @@
-%define mod_ver 0.1
+%define mod_ver 1.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -97,5 +97,8 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS 
 
 %changelog
+* Fri Dec 21 2012 David Nichols <david@qore.org> 1.0
+- updated to v1.0 for initial release
+
 * Mon Nov 5 2012 David Nichols <david@qore.org> 0.1
 - initial spec file for openldap module

@@ -328,11 +328,33 @@ my bool $b = $ldap.compare("uid=temp,ou=people,dc=example,dc=com", "uidnumber", 
     @note strings are converted to UTF-8 before sending to the server if necessary
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
-    @throw LDAP-ERROR an error occurred performing the delete operation
+    @throw LDAP-ERROR an error occurred performing the comparison operation
     @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 bool LdapClient::compare(string dn, string attr, softlist vals, *timeout timeout_ms) {
    return ldap->compare(xsink, dn, attr, vals, timeout_ms);
+}
+
+//! renames entries in the Directory Information Tree
+/** @par Example:
+    @code
+$ldap.rename("uid=test,ou=people,dc=example,dc=com", "uid=test1", "ou=people,dc=example,dc=com");
+    @endcode
+
+    @param dn the distinguished name of the entry to rename
+    @param newrdn the new relative distinguished name of the entry
+    @param the distinguished name of the entry's new parent
+    @param deleteoldrdn if this argument is \c False, then the old relative distinguished name will be maintained along with the new name, if \c True (the default), then the old attributes are deleted
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
+
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ERROR an error occurred performing the rename operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
+*/
+nothing LdapClient::rename(string dn, string newrdn, string newparent, softbool deleteoldrdn = True, *timeout timeout_ms) {
+   ldap->rename(xsink, dn, newrdn, newparent, deleteoldrdn, timeout_ms);
 }
 
 //! returns the URI string used to connect to the LDAP server

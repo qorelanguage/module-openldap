@@ -899,6 +899,41 @@ public:
       return false;
    }
 
+   DLLLOCAL int rename(ExceptionSink* xsink, const QoreStringNode* dn, const QoreStringNode* newrdn, const QoreStringNode* newparent, bool deleteoldrdn = true, int my_timeout_ms = 0) {
+      // convert strings to UTF-8 if necessary
+      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      QoreStringValueHelper newrdnstr(newrdn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      QoreStringValueHelper newparentstr(newparent, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      AutoLocker al(m);
+      if (checkValidIntern("rename", xsink))
+	 return -1;
+
+      printd(0, "LdapClient::rename() dn: '%s' newrdn: '%s' newparent: '%s' deleteoldrdn: %d\n", dnstr->getBuffer(), newrdnstr->getBuffer(), newparentstr->getBuffer(), (int)deleteoldrdn);
+      
+      int msgid;
+      if (checkLdapError("rename", "ldap_rename", ldap_rename(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), newrdnstr->empty() ? 0 : newrdnstr->getBuffer(), newparentstr->empty() ? 0 : newparentstr->getBuffer(), (int)deleteoldrdn, 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(my_timeout_ms);
+
+      if (checkLdapResult("rename", "ldap_rename", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
+         return -1;
+      }
+
+      return checkFreeResult("rename", "ldap_rename", res, xsink);
+   }
+
    DLLLOCAL QoreStringNode* getUriStr() const {
       assert(uri);
       return uri->stringRefSelf();
