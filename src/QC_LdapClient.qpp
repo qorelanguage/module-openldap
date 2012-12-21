@@ -25,6 +25,25 @@
 
 #include "QoreLdapClient.h"
 
+QoreLdapParseResultHelper::QoreLdapParseResultHelper(const char *n_meth, const char* n_f, QoreLdapClient* n_l, LDAPMessage* msg, ExceptionSink* xs) : meth(n_meth), f(n_f), l(n_l), xsink(xs), err(0), matched(0), text(0), refs(0) {
+   l->checkLdapError(meth, f, ldap_parse_result(l->ldp, msg, &err, &matched, &text, &refs, 0, 1), xsink);
+}
+
+int QoreLdapParseResultHelper::check() const {
+   if (err == LDAP_SUCCESS)
+      return 0;
+
+   QoreStringNode* desc = l->getErrorText(meth, f, err);
+   if (text)
+      desc->sprintf(": %s", text);
+   if (matched)
+      desc->sprintf(" (matched: '%s')", matched);
+   //if (refs) { }
+   
+   xsink->raiseException("LDAP-RESULT-ERROR", desc);
+   return -1;
+}
+
 class LdapClientHolder {
 protected:
    QoreLdapClient* ldap;
@@ -118,7 +137,10 @@ my LdapClient $ldap("ldaps://ldap.example.com:389", ("starttls": True, "timeout"
 
     @note If no \c "timeout" option is given, a default timeout value of 60 seconds is set automatically
 
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-ERROR an error occurred creating the ldap session context
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 LdapClient::constructor(string uri, *hash options) {
    LdapClientHolder ldap(new QoreLdapClient(uri, options, xsink), xsink);
@@ -165,9 +187,12 @@ $ldap.bind($h);
     - \c password: the password to use for the connection
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-BIND-ERROR parameter type error or 'password' given with no 'binddn' value
     @throw LDAP-ERROR an error occurred performing the bind
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 LdapClient::bind(hash bind, *timeout timeout_ms) {
    ldap->bind(xsink, *bind, timeout_ms);
@@ -188,8 +213,11 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
 
     @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
 
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ERROR an error occurred performing the search
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 hash LdapClient::search(hash h, *timeout timeout_ms) {
    const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
@@ -230,9 +258,12 @@ $ldap.add("uid=temp,ou=people,dc=example,dc=com", ("objectclass": "inetorgperson
     @param attrs a hash of new attributes; the keys are attribute names and the values are the attribute values
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
     
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ADD-ERROR missing attribute value
     @throw LDAP-ERROR an error occurred performing the add operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
 */
 nothing LdapClient::add(string dn, hash attrs, *timeout timeout_ms) {
    ldap->add(xsink, dn, attrs, timeout_ms);
@@ -251,9 +282,12 @@ $ldap.modify("uid=temp,ou=people,dc=example,dc=com", ("mod": LDAP_MOD_ADD, "attr
     - [\c value]: the value to add or replace 
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
     
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-MODIFY-ERROR invalid mod hash format; missing value for add or replace operation
     @throw LDAP-ERROR an error occurred performing the modify operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
 */
 nothing LdapClient::modify(string dn, softlist mods, *timeout timeout_ms) {
    ldap->modify(xsink, dn, mods, timeout_ms);
@@ -268,11 +302,37 @@ $ldap.del("uid=temp,ou=people,dc=example,dc=com");
     @param dn the distinguished name of the entry to delete
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ERROR an error occurred performing the delete operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 nothing LdapClient::del(string dn, *timeout timeout_ms) {
    ldap->del(xsink, dn, timeout_ms);
+}
+
+//! check ldap attribute values; if any errors occur (entry does not exist, etc), an \c LDAP-ERROR exception will be thrown
+/** @par Example:
+    @code
+my bool $b = $ldap.compare("uid=temp,ou=people,dc=example,dc=com", "uidnumber", 1000);
+    @endcode
+
+    @param dn the distinguished name of the entry to find for the attribute value comparison
+    @param attr the name of the attribute for the value comparison
+    @param vals a single string or a list of strings of values to compare; if any value is not a string it will be converted to a string
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
+
+    @return \c True if the value(s) match, \c False if not
+
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ERROR an error occurred performing the delete operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
+ */
+bool LdapClient::compare(string dn, string attr, softlist vals, *timeout timeout_ms) {
+   return ldap->compare(xsink, dn, attr, vals, timeout_ms);
 }
 
 //! returns the URI string used to connect to the LDAP server

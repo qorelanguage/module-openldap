@@ -98,6 +98,42 @@ public:
    }
 };
 
+class QoreBerval : public berval {
+public:
+   DLLLOCAL QoreBerval(const QoreString& str) {
+      bv_val = new char[str.size() + 1];
+      strcpy(bv_val, str.getBuffer());
+      bv_len = str.size();
+   }
+
+   DLLLOCAL ~QoreBerval() {
+      delete [] bv_val;
+   }
+};
+
+class BervalListHelper : public LdapListHelper<QoreBerval*> {
+protected:
+   DLLLOCAL virtual int addElement(const ConstListIterator& li, ExceptionSink* xsink) {
+      QoreStringValueHelper str(li.getValue(), QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+      QoreBerval*& e = l[li.index()];
+      e = new QoreBerval(**str);
+      return 0;
+   }
+   
+public:
+   DLLLOCAL BervalListHelper(const QoreListNode* strl, ExceptionSink* xsink) : LdapListHelper<QoreBerval*>() {
+      init(strl, xsink);
+   }
+
+   DLLLOCAL virtual ~BervalListHelper() {
+      for (unsigned i = 0; i < len; ++i)
+         delete l[i];
+      delete [] l;
+   }
+};
+
 class AttrListHelper : public LdapListHelper<char*> {
 protected:
    DLLLOCAL virtual int addElement(const ConstListIterator& li, ExceptionSink* xsink) {
@@ -333,8 +369,42 @@ struct TimeoutHelper : public timeval {
    }
 };
 
+class QoreLdapClient;
+
+class QoreLdapParseResultHelper {
+protected:
+   const char* meth;
+   const char* f;
+   QoreLdapClient* l;
+   ExceptionSink* xsink;
+   int err;
+   char* matched;
+   char* text;
+   char** refs;
+
+public:
+   DLLLOCAL QoreLdapParseResultHelper(const char *n_meth, const char* n_f, QoreLdapClient* n_l, LDAPMessage* msg, ExceptionSink* xs);
+
+   DLLLOCAL ~QoreLdapParseResultHelper() {
+      if (matched)
+         ldap_memfree(matched);
+      if (text)
+         ldap_memfree(text);
+      if (refs)
+         ldap_memvfree((void**)refs);
+   }
+
+   DLLLOCAL int getError() const {
+      return err;
+   }
+
+   DLLLOCAL int check() const;
+};
+
 // the c++ object
 class QoreLdapClient : public AbstractPrivateData {
+   friend class QoreLdapParseResultHelper;
+
 protected:
    // ldap context
    LDAP* ldp;
@@ -374,44 +444,21 @@ protected:
    }
 
    DLLLOCAL int checkFreeResult(const char* meth, const char* f, LDAPMessage* res, ExceptionSink* xsink) {
-      int err;
-      char* matched = 0;
-      char* text = 0;
-      char** refs = 0;
-      //LDAPControl** ctrls = 0;
-      if (checkLdapError(meth, "ldap_parse_result", ldap_parse_result(ldp, res, &err, &matched, &text, &refs, 0, 1), xsink))
+      QoreLdapParseResultHelper prh(meth, f, this, res, xsink);
+      if (*xsink)
          return -1;
-
-      if (err != LDAP_SUCCESS) {
-         QoreStringNode* desc = getErrorText(meth, f, err);
-         if (text)
-            desc->sprintf(": %s", text);
-         if (matched)
-            desc->sprintf(" (matched: '%s')", matched);
-         //if (refs) { }
-         
-         xsink->raiseException("LDAP-RESULT-ERROR", desc);
-      }
-
-      if (matched)
-         ldap_memfree(matched);
-      if (text)
-         ldap_memfree(text);
-      if (refs)
-         ldap_memvfree((void**)refs);
-
-      return err == LDAP_SUCCESS ? 0 : -1;
+      return prh.check();
    }
 
-   int checkLdapResult(const char* meth, int ec, ExceptionSink* xsink) const {
+   int checkLdapResult(const char* meth, const char* f, int ec, ExceptionSink* xsink) const {
       //printd(5, "QoreLdapClient::checkLdapResult() rc: %d\n", ec);
       // timeout
       if (!ec) {
-         doLdapError(meth, "ldap_result", LDAP_TIMEOUT, xsink);
+         doLdapError(meth, f, LDAP_TIMEOUT, xsink);
          return -1;
       }
       if (ec == -1) {
-         doLdapError(meth, "ldap_result", ec, xsink);
+         doLdapError(meth, f, ec, xsink);
          return -1;
       }
       return 0;
@@ -478,8 +525,10 @@ protected:
       if (checkLdapError(m, "ldap_search_ext", ldap_search_ext(ldp, 0, LDAP_SCOPE_BASE, 0, 0, 0, 0, 0, 0, 0, &msgid), xsink))
          return -1;
       LDAPMessage* res = 0;
-      if (checkLdapResult(m, ldap_result(ldp, msgid, LDAP_MSG_ALL, &timeout, &res), xsink))
+      if (checkLdapResult(m, "ldap_search_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, &timeout, &res), xsink)) {
+         assert(!res);
          return -1;
+      }
       ldap_msgfree(res);
 
       // issue a STARTTLS if necessary
@@ -531,8 +580,10 @@ protected:
       LDAPMessage* result = 0;
       TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult(m, ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &result), xsink))
+      if (checkLdapResult(m, "ldap_sasl_bind", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &result), xsink)) {
+         assert(!result);
          return -1;
+      }
 
       return checkFreeResult(m, "ldap_sasl_bind", result, xsink);
    }
@@ -655,8 +706,10 @@ public:
       LDAPMessage* res = 0;
       TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("search", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
+      if (checkLdapResult("search", "ldap_search_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
          return 0;
+      }
 
       ON_BLOCK_EXIT(ldap_msgfree, res);
 
@@ -738,8 +791,10 @@ public:
       LDAPMessage* res = 0;
       TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("add", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
+      if (checkLdapResult("add", "ldap_add_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
          return -1;
+      }
 
       return checkFreeResult("add", "ldap_add_ext", res, xsink);
    }
@@ -765,8 +820,10 @@ public:
       LDAPMessage* res = 0;
       TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("modify", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
+      if (checkLdapResult("modify", "ldap_modify_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
          return -1;
+      }
 
       return checkFreeResult("modify", "ldap_modify_ext", res, xsink);
    }
@@ -777,6 +834,10 @@ public:
       if (*xsink)
          return -1;
 
+      AutoLocker al(m);
+      if (checkValidIntern("del", xsink))
+	 return -1;
+
       int msgid;
       if (checkLdapError("del", "ldap_delete_ext", ldap_delete_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), 0, 0, &msgid), xsink))
          return -1;
@@ -784,12 +845,58 @@ public:
       LDAPMessage* res = 0;
       TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("del", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
+      if (checkLdapResult("del", "ldap_delete_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
          return -1;
+      }
 
       return checkFreeResult("del", "ldap_delete_ext", res, xsink);
 
       return 0;
+   }
+
+   DLLLOCAL bool compare(ExceptionSink* xsink, const QoreStringNode* dn, const QoreStringNode* attr, const QoreListNode* vl, int my_timeout_ms = 0) {
+      // convert strings to UTF-8 if necessary
+      QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      QoreStringValueHelper attrstr(attr, QCS_UTF8, xsink);
+      if (*xsink)
+         return -1;
+
+      BervalListHelper bval(vl, xsink);
+      if (*xsink)
+         return -1;
+
+      AutoLocker al(m);
+      if (checkValidIntern("compare", xsink))
+	 return -1;
+
+      int msgid;
+      if (checkLdapError("compare", "ldap_compare_ext", ldap_compare_ext(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), attrstr->empty() ? 0 : attrstr->getBuffer(), **bval, 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(my_timeout_ms);
+
+      if (checkLdapResult("compare", "ldap_compare_ext", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
+         return false;
+      }
+
+      QoreLdapParseResultHelper prh("compare", "ldap_compare_ext", this, res, xsink);
+      if (*xsink)
+         return -1;
+
+      int rc = prh.getError();
+      if (rc == LDAP_COMPARE_TRUE)
+         return true;
+      if (rc == LDAP_COMPARE_FALSE)
+         return false;
+
+      prh.check();
+      return false;
    }
 
    DLLLOCAL QoreStringNode* getUriStr() const {
