@@ -42,7 +42,7 @@ const opts = (
     "help": "h,help",
     );
 
-const LdapOptions = ("binddn", "password", "base", "timeout", "protocol", "no-referrals", "starttls");
+const LdapOptions = ("binddn", "password", "timeout", "protocol", "no-referrals", "starttls");
 
 sub main() {
     # process command-line options

@@ -426,11 +426,11 @@ protected:
       return 0;
    }
 
-   DLLLOCAL int unbindIntern(ExceptionSink* xsink) {
+   DLLLOCAL int unbindIntern(ExceptionSink* xsink, int my_timeout_ms = 0) {
       ldap_unbind_ext_s(ldp, 0, 0);
       ldp = 0;
 
-      return initIntern(xsink, "bind");
+      return initIntern(xsink, "bind", my_timeout_ms);
    }
 
    DLLLOCAL int initIntern(ExceptionSink* xsink, const char* m, const QoreStringNode& uristr) {
@@ -440,7 +440,7 @@ protected:
       return initIntern(xsink, m);
    }
 
-   DLLLOCAL int initIntern(ExceptionSink* xsink, const char* m) {
+   DLLLOCAL int initIntern(ExceptionSink* xsink, const char* m, int my_timeout_ms = 0) {
       if (checkLdapError(m, "ldap_initialize", ldap_initialize(&ldp, uri->getBuffer()), xsink))
 	 return -1;
 
@@ -456,11 +456,11 @@ protected:
 	 return -1;
       }
 
-      // set default timeout
+      // set timeout
       TimeoutHelper timeout(timeout_ms);
 
       if (ldap_set_option(ldp, LDAP_OPT_TIMEOUT, &timeout)) {
-         xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
+         xsink->raiseException("LDAP-ERROR", "failed to set default LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
          return -1;
       }
 
@@ -469,6 +469,9 @@ protected:
          xsink->raiseException("LDAP-ERROR", "failed to disable LDAP referrals; ldap_set_option(LDAP_OPT_REFERRALS) failed");
          return -1;
       }
+
+      if (my_timeout_ms && my_timeout_ms != timeout_ms)
+         timeout = my_timeout_ms;
 
       // force a connection to the server with an empty search request and ignore the result
       int msgid;
@@ -489,7 +492,7 @@ protected:
       return 0;
    }
 
-   DLLLOCAL int bindInitIntern(ExceptionSink* xsink, const char* m, const QoreHashNode& bindh, int timeout_ms = -1) {
+   DLLLOCAL int bindInitIntern(ExceptionSink* xsink, const char* m, const QoreHashNode& bindh, int my_timeout_ms = 0) {
       assert(ldp);
 
       const QoreStringNode* password = check_hash_key<QoreStringNode>(xsink, bindh, "password", "LDAP-BIND-ERROR");
@@ -526,9 +529,9 @@ protected:
          return -1;
       
       LDAPMessage* result = 0;
-      TimeoutHelper timeout(timeout_ms);
+      TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult(m, ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &result), xsink))
+      if (checkLdapResult(m, ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &result), xsink))
          return -1;
 
       return checkFreeResult(m, "ldap_sasl_bind", result, xsink);
@@ -615,18 +618,18 @@ public:
       return ldap_tls_inplace(ldp);
    }
 
-   DLLLOCAL int bind(const QoreHashNode& bindh, ExceptionSink* xsink) {
+   DLLLOCAL int bind(ExceptionSink* xsink, const QoreHashNode& bindh, int my_timeout_ms = 0) {
       AutoLocker al(m);
       if (checkValidIntern("bind", xsink))
 	 return -1;
 
-      if (unbindIntern(xsink))
+      if (unbindIntern(xsink, my_timeout_ms))
 	 return -1;
 
-      return bindInitIntern(xsink, "bind", bindh);
+      return bindInitIntern(xsink, "bind", bindh, my_timeout_ms);
    }
 
-   DLLLOCAL QoreHashNode* search(ExceptionSink* xsink, const QoreStringNode* base, int scope, const QoreStringNode* filter, const QoreListNode* attrl = 0, bool attrsonly = false, int timeout_ms = -1) {
+   DLLLOCAL QoreHashNode* search(ExceptionSink* xsink, const QoreStringNode* base, int scope, const QoreStringNode* filter, const QoreListNode* attrl = 0, bool attrsonly = false, int my_timeout_ms = 0) {
       // convert strings to UTF-8 if necessary
       QoreStringValueHelper bstr(base, QCS_UTF8, xsink);
       if (*xsink)
@@ -650,9 +653,9 @@ public:
          return 0;
 
       LDAPMessage* res = 0;
-      TimeoutHelper timeout(timeout_ms);
+      TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("search", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+      if (checkLdapResult("search", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
          return 0;
 
       ON_BLOCK_EXIT(ldap_msgfree, res);
@@ -714,7 +717,7 @@ public:
       return h.release();
    }
 
-   DLLLOCAL int add(ExceptionSink* xsink, const QoreStringNode* dn, const QoreHashNode* attr, int timeout_ms = -1) {
+   DLLLOCAL int add(ExceptionSink* xsink, const QoreStringNode* dn, const QoreHashNode* attr, int my_timeout_ms = 0) {
       // convert strings to UTF-8 if necessary
       QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
       if (*xsink)
@@ -733,15 +736,15 @@ public:
          return -1;
 
       LDAPMessage* res = 0;
-      TimeoutHelper timeout(timeout_ms);
+      TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("add", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+      if (checkLdapResult("add", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
          return -1;
 
       return checkFreeResult("add", "ldap_add_ext", res, xsink);
    }
 
-   DLLLOCAL int modify(ExceptionSink* xsink, const QoreStringNode* dn, const QoreListNode* ml, int timeout_ms = -1) {
+   DLLLOCAL int modify(ExceptionSink* xsink, const QoreStringNode* dn, const QoreListNode* ml, int my_timeout_ms = 0) {
       // convert strings to UTF-8 if necessary
       QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
       if (*xsink)
@@ -760,15 +763,15 @@ public:
          return -1;
 
       LDAPMessage* res = 0;
-      TimeoutHelper timeout(timeout_ms);
+      TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("modify", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+      if (checkLdapResult("modify", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
          return -1;
 
       return checkFreeResult("modify", "ldap_modify_ext", res, xsink);
    }
 
-   DLLLOCAL int del(ExceptionSink* xsink, const QoreStringNode* dn, int timeout_ms = -1) {
+   DLLLOCAL int del(ExceptionSink* xsink, const QoreStringNode* dn, int my_timeout_ms = 0) {
       // convert strings to UTF-8 if necessary
       QoreStringValueHelper dnstr(dn, QCS_UTF8, xsink);
       if (*xsink)
@@ -779,9 +782,9 @@ public:
          return -1;
 
       LDAPMessage* res = 0;
-      TimeoutHelper timeout(timeout_ms);
+      TimeoutHelper timeout(my_timeout_ms);
 
-      if (checkLdapResult("del", ldap_result(ldp, msgid, LDAP_MSG_ALL, timeout_ms < 0 ? 0 : &timeout, &res), xsink))
+      if (checkLdapResult("del", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink))
          return -1;
 
       return checkFreeResult("del", "ldap_delete_ext", res, xsink);

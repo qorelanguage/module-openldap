@@ -94,14 +94,19 @@ const DefaultTimeout = 60s;
 //! The LdapClient class 
 /** 
  */
-qclass LdapClient [arg=QoreLdapClient* ldap; dom=NETWORK];
+qclass LdapClient [arg=QoreLdapClient* ldap; dom=NETWORK; ns=OpenLdap];
 
-//! Creates a new LdapClient object
-/** 
+//! Creates a new LdapClient object and establishes a connection to the server with optional bind parameters
+/** A connection to the server is made with an empty search request even if no bind parameters are given.
+    To ensure that a secure TLS connection is made to the server regardless of the scheme given in the URI,
+    set the \c "starttls" argument to \c True.
+
     @par Example:
     @code
 my LdapClient $ldap("ldaps://ldap.example.com:389", ("starttls": True, "timeout": 20s));
     @endcode
+
+    Each LdapClient object represents a connection to the server.  Individual requests are wrapped in mutual exclusion locks to ensure atomicity and thread-safety, therefore if sharing a single LdapClient object between multiple threads, simultaneous requests will block if another request is already in progress.
 
     @param uri the URI of the ldap server (ex: \c "ldaps://ldap.example.com")
     @param options an optional hash of optional parameters, allowed keys are:
@@ -109,7 +114,9 @@ my LdapClient $ldap("ldaps://ldap.example.com:389", ("starttls": True, "timeout"
     - \c password: the password to use for the connection
     - \c timeout: the default timeout for ldap operations; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
     - \c no-referrals: (boolean) do not follow referrals (the default is to follow referrals)
-    - \c starttls: (boolean) if set, then a \c STARTTLS command will be executed if a secure connection is not already established; note that setting this option will ensure a secure connection regardless of the scheme in the URI
+    - \c starttls: (boolean) if set, then a \c STARTTLS command will be executed if a secure connection is not already established; note that setting this option will ensure a secure connection regardless of the scheme in the URI.  If a secure connection has already been established (for example by using a \c "ldaps" scheme in the URI), then this parameter is ignored
+
+    @note If no \c "timeout" option is given, a default timeout value of 60 seconds is set automatically
 
     @throw LDAP-ERROR an error occurred creating the ldap session context
  */
@@ -156,13 +163,14 @@ $ldap.bind($h);
     @param bind a hash of bind parameters, allowed keys are:
     - \c binddn: the dinstinguished name to use to bind to the LDAP server
     - \c password: the password to use for the connection
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-BIND-ERROR parameter type error or 'password' given with no 'binddn' value
     @throw LDAP-ERROR an error occurred performing the bind
  */
-LdapClient::bind(hash bind) {
-   ldap->bind(*bind, xsink);
+LdapClient::bind(hash bind, *timeout timeout_ms) {
+   ldap->bind(xsink, *bind, timeout_ms);
 }
 
 //! performs a search on the LDAP server 
@@ -176,13 +184,14 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
     - \c "filter": the search filter (ex: \c "(objectClass=*)")
     - \c "attributes": one or more attribute names; if this is present then only the given attributes will be returned
     - \c "scope": an integer giving the search scope; see @ref ldap_scope_constants for allowed values; note that if this key value is not present then @ref LDAP_SCOPE_SUBTREE is used
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
     @return a hash of the return value of the search; the hash is empty if no search results are available; the hash is keyed by Distinguished Names; each value is also a hash of attributes and attribute values
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ERROR an error occurred performing the search
  */
-hash LdapClient::search(hash h) {
+hash LdapClient::search(hash h, *timeout timeout_ms) {
    const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
    const QoreStringNode* filter = check_hash_key<QoreStringNode>(xsink, *h, "filter", "LDAP-SEARCH-ERROR");
    const AbstractQoreNode* n = h->getKeyValue("attributes");
@@ -206,7 +215,7 @@ hash LdapClient::search(hash h) {
    if (!scope)
       scope = LDAP_SCOPE_SUBTREE;
    
-   return ldap->search(xsink, base, scope, filter, *attrl);
+   return ldap->search(xsink, base, scope, filter, *attrl, false, timeout_ms);
 }
 
 //! add ldap an entry and attributes
@@ -219,13 +228,14 @@ $ldap.add("uid=temp,ou=people,dc=example,dc=com", ("objectclass": "inetorgperson
 
     @param dn the distinguished name of the entry to add
     @param attrs a hash of new attributes; the keys are attribute names and the values are the attribute values
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
     
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ADD-ERROR missing attribute value
     @throw LDAP-ERROR an error occurred performing the add operation
 */
-nothing LdapClient::add(string dn, hash attrs) {
-   ldap->add(xsink, dn, attrs);
+nothing LdapClient::add(string dn, hash attrs, *timeout timeout_ms) {
+   ldap->add(xsink, dn, attrs, timeout_ms);
 }
 
 //! modify (add, replace, delete) ldap attributes; if any errors occur (entry does not exist, etc), an \c LDAP-ERROR exception will be thrown
@@ -239,13 +249,14 @@ $ldap.modify("uid=temp,ou=people,dc=example,dc=com", ("mod": LDAP_MOD_ADD, "attr
     - \c mod: a modification action; see @ref ldap_modify_constants for possible values
     - \c attr: the attribute to modify
     - [\c value]: the value to add or replace 
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
     
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-MODIFY-ERROR invalid mod hash format; missing value for add or replace operation
     @throw LDAP-ERROR an error occurred performing the modify operation
 */
-nothing LdapClient::modify(string dn, softlist mods) {
-   ldap->modify(xsink, dn, mods);
+nothing LdapClient::modify(string dn, softlist mods, *timeout timeout_ms) {
+   ldap->modify(xsink, dn, mods, timeout_ms);
 }
 
 //! delete ldap entries; if any errors occur (entry does not exist, etc), an \c LDAP-ERROR exception will be thrown
@@ -255,12 +266,13 @@ $ldap.del("uid=temp,ou=people,dc=example,dc=com");
     @endcode
 
     @param dn the distinguished name of the entry to delete
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ERROR an error occurred performing the delete operation
  */
-nothing LdapClient::del(string dn) {
-   ldap->del(xsink, dn);
+nothing LdapClient::del(string dn, *timeout timeout_ms) {
+   ldap->del(xsink, dn, timeout_ms);
 }
 
 //! returns the URI string used to connect to the LDAP server
