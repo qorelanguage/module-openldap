@@ -100,7 +100,7 @@ qclass LdapClient [arg=QoreLdapClient* ldap; dom=NETWORK];
 /** 
     @par Example:
     @code
-my LdapClient $ldap("ldaps://ldap.example.com:389");
+my LdapClient $ldap("ldaps://ldap.example.com:389", ("starttls": True, "timeout": 20s));
     @endcode
 
     @param uri the URI of the ldap server (ex: \c "ldaps://ldap.example.com")
@@ -108,6 +108,8 @@ my LdapClient $ldap("ldaps://ldap.example.com:389");
     - \c binddn: the dinstinguished name to use to bind to the LDAP server
     - \c password: the password to use for the connection
     - \c timeout: the default timeout for ldap operations; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
+    - \c no-referrals: (boolean) do not follow referrals (the default is to follow referrals)
+    - \c starttls: (boolean) if set, then a \c STARTTLS command will be executed if a secure connection is not already established; note that setting this option will ensure a secure connection regardless of the scheme in the URI
 
     @throw LDAP-ERROR an error occurred creating the ldap session context
  */
@@ -166,8 +168,9 @@ LdapClient::bind(hash bind) {
 //! performs a search on the LDAP server 
 /** @par Example:
     @code
-    @endcode
 my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=*)", "attributes": "uid");
+    @endcode
+
     @param h a hash of search options with one or more of the following keys:
     - \c "base": the search base distinguished name for the search (ex: \c "dc=example,dc=com")
     - \c "filter": the search filter (ex: \c "(objectClass=*)")
@@ -207,19 +210,31 @@ hash LdapClient::search(hash h) {
 }
 
 //! add ldap an entry and attributes
-/** @param dn the distinguished name of the entry to add
+/** Give the new entry's objectclass as an attribute; an attribute value can be a list to add multiple values to an attribute
+
+    @par Example:
+    @code
+$ldap.add("uid=temp,ou=people,dc=example,dc=com", ("objectclass": "inetorgperson", "sn": "Test", "cn": "test test"));
+    @endcode
+
+    @param dn the distinguished name of the entry to add
     @param attrs a hash of new attributes; the keys are attribute names and the values are the attribute values
     
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ADD-ERROR missing attribute value
-    @throw LDAP-ERROR an error occurred performing the modify operation
+    @throw LDAP-ERROR an error occurred performing the add operation
 */
 nothing LdapClient::add(string dn, hash attrs) {
    ldap->add(xsink, dn, attrs);
 }
 
-//! modify (add, replace, delete) ldap attributes
-/** @param dn the distinguished name of the entry to modify
+//! modify (add, replace, delete) ldap attributes; if any errors occur (entry does not exist, etc), an \c LDAP-ERROR exception will be thrown
+/** @par Example:
+    @code
+$ldap.modify("uid=temp,ou=people,dc=example,dc=com", ("mod": LDAP_MOD_ADD, "attr": "someattr", "value": "new-value"));
+    @endcode
+
+    @param dn the distinguished name of the entry to modify
     @param mods a hash or list of hashes of modifications to make; each hash is made up of the following keys:
     - \c mod: a modification action; see @ref ldap_modify_constants for possible values
     - \c attr: the attribute to modify
@@ -233,8 +248,13 @@ nothing LdapClient::modify(string dn, softlist mods) {
    ldap->modify(xsink, dn, mods);
 }
 
-//! delete ldap entries
-/** @param dn the distinguished name of the entry to delete
+//! delete ldap entries; if any errors occur (entry does not exist, etc), an \c LDAP-ERROR exception will be thrown
+/** @par Example:
+    @code
+$ldap.del("uid=temp,ou=people,dc=example,dc=com");
+    @endcode
+
+    @param dn the distinguished name of the entry to delete
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
     @throw LDAP-ERROR an error occurred performing the delete operation
@@ -253,6 +273,20 @@ my string $uri = $ldap.getUri();
 */
 string LdapClient::getUri() [flags=CONSTANT] {
    return ldap->getUriStr();
+}
+
+//! returns \c True if the connection to the server is secure, \c False if not
+/** @par Example:
+    @code
+my bool $b = $ldap.isSecure();
+    @endcode
+
+    @return \c True if the connection to the server is secure, \c False if not
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+ */
+bool LdapClient::isSecure() [flags=RET_VALUE_ONLY] {
+   return ldap->isSecure(xsink);
 }
 
 //! Returns a hash with information about the openldap library

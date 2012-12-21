@@ -317,6 +317,15 @@ struct QoreLDAPAPIInfoHelper : public LDAPAPIInfo {
 
 struct TimeoutHelper : public timeval {
    DLLLOCAL TimeoutHelper(int ms) {
+      assign(ms);
+   }
+
+   DLLLOCAL TimeoutHelper& operator=(int ms) {
+      assign(ms);
+      return *this;
+   }
+
+   DLLLOCAL void assign(int ms) {
       if (ms < 0)
          ms = 0;
       tv_sec = ms / 1000;
@@ -335,6 +344,13 @@ protected:
    QoreStringNode* uri;
    // saved bind parameters
    QoreHashNode* bh;
+   // ldap protocol version
+   int prot;
+   // ldap default timeout in ms
+   int timeout_ms;
+   // boolean flags
+   bool tls : 1,        // issue a STARTTLS command if the session is not already secure
+      no_referrals : 1; // do not follow referrals
 
    QoreStringNode* getErrorText(const char* meth, const char* f, int ec) const {
       QoreStringNode* desc = new QoreStringNode("ldap server ");
@@ -387,7 +403,6 @@ protected:
       return err == LDAP_SUCCESS ? 0 : -1;
    }
 
-
    int checkLdapResult(const char* meth, int ec, ExceptionSink* xsink) const {
       //printd(5, "QoreLdapClient::checkLdapResult() rc: %d\n", ec);
       // timeout
@@ -415,23 +430,23 @@ protected:
       ldap_unbind_ext_s(ldp, 0, 0);
       ldp = 0;
 
-      return initIntern(xsink);
+      return initIntern(xsink, "bind");
    }
 
-   DLLLOCAL int initIntern(ExceptionSink* xsink, const QoreStringNode& uristr, int iv = QORE_LDAP_DEFAULT_PROTOCOL) {
+   DLLLOCAL int initIntern(ExceptionSink* xsink, const char* m, const QoreStringNode& uristr) {
       assert(!ldp);
       assert(!uri);
       uri = uristr.stringRefSelf();
-      return initIntern(xsink, iv);
+      return initIntern(xsink, m);
    }
 
-   DLLLOCAL int initIntern(ExceptionSink* xsink, int iv = QORE_LDAP_DEFAULT_PROTOCOL) {
-      if (checkLdapError("constructor", "ldap_initialize", ldap_initialize(&ldp, uri->getBuffer()), xsink))
+   DLLLOCAL int initIntern(ExceptionSink* xsink, const char* m) {
+      if (checkLdapError(m, "ldap_initialize", ldap_initialize(&ldp, uri->getBuffer()), xsink))
 	 return -1;
 
       // set protocol version
-      if (ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &iv)) {
-	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP protocol v%d; ldap_set_option(LDAP_OPT_PROTOCOL_VERSION) failed", iv);
+      if (ldap_set_option(ldp, LDAP_OPT_PROTOCOL_VERSION, &prot)) {
+	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP protocol v%d; ldap_set_option(LDAP_OPT_PROTOCOL_VERSION) failed", prot);
 	 return -1;
       }
 
@@ -439,6 +454,36 @@ protected:
       if (ldap_set_option(ldp, LDAP_OPT_RESTART, LDAP_OPT_ON)) {
 	 xsink->raiseException("LDAP-ERROR", "failed to set LDAP restart option; ldap_set_option(LDAP_OPT_RESTART) failed");
 	 return -1;
+      }
+
+      // set default timeout
+      TimeoutHelper timeout(timeout_ms);
+
+      if (ldap_set_option(ldp, LDAP_OPT_TIMEOUT, &timeout)) {
+         xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
+         return -1;
+      }
+
+      // disable referrals if necessary
+      if (no_referrals && ldap_set_option(ldp, LDAP_OPT_REFERRALS, LDAP_OPT_OFF)) {
+         xsink->raiseException("LDAP-ERROR", "failed to disable LDAP referrals; ldap_set_option(LDAP_OPT_REFERRALS) failed");
+         return -1;
+      }
+
+      // force a connection to the server with an empty search request and ignore the result
+      int msgid;
+      if (checkLdapError(m, "ldap_search_ext", ldap_search_ext(ldp, 0, LDAP_SCOPE_BASE, 0, 0, 0, 0, 0, 0, 0, &msgid), xsink))
+         return -1;
+      LDAPMessage* res = 0;
+      if (checkLdapResult(m, ldap_result(ldp, msgid, LDAP_MSG_ALL, &timeout, &res), xsink))
+         return -1;
+      ldap_msgfree(res);
+
+      // issue a STARTTLS if necessary
+      if (tls && !ldap_tls_inplace(ldp)) {
+         if (checkLdapError("constructor", "ldap_start_tls_s", ldap_start_tls_s(ldp, 0, 0), xsink))
+            return -1;
+         //printd(0, "QoreLdapClient::initIntern() STARTTLS successful\n");
       }
 
       return 0;
@@ -490,56 +535,46 @@ protected:
    }
 
 public:
-   DLLLOCAL QoreLdapClient(const QoreStringNode* uristr, const QoreHashNode* opth, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {
+   DLLLOCAL QoreLdapClient(const QoreStringNode* uristr, const QoreHashNode* opth, ExceptionSink* xsink) : ldp(0), uri(0), bh(0), prot(QORE_LDAP_DEFAULT_PROTOCOL), timeout_ms(QORE_LDAP_DEFAULT_TIMEOUT_MS), tls(false), no_referrals(false) {
       //printd(5, "QoreLdapClient::QoreLdapClient() this: %p uri: '%s' opth: %p\n", this, uristr->getBuffer(), opth);
 
-      const AbstractQoreNode* p = opth->getKeyValue("protocol");
-      int iv = p ? p->getAsInt() : 0;
-      if (!iv)
-         iv = QORE_LDAP_DEFAULT_PROTOCOL;
+      if (opth) {
+         const AbstractQoreNode* p = opth->getKeyValue("protocol");
+         int i = p ? p->getAsInt() : 0;
+         if (i)
+            prot = i;
 
-      if (initIntern(xsink, *uristr, iv))
+         i = getMsZeroInt(opth->getKeyValue("timeout"));
+         if (i)
+            timeout_ms = i;
+
+         //printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
+
+         p = opth->getKeyValue("no-referrals");
+         bool refp = p ? p->getAsBool() : false;
+         if (refp)
+            no_referrals = true;
+
+         p = opth->getKeyValue("starttls");
+         tls = p ? p->getAsBool() : false;
+      }
+
+      if (initIntern(xsink, "constructor", *uristr))
 	 return;
+
       if (opth) {
          bindInitIntern(xsink, "constructor", *opth);
          if (*xsink)
             return;
-
-         int timeout_ms = getMsZeroInt(opth->getKeyValue("timeout"));
-         if (!timeout_ms)
-            timeout_ms = QORE_LDAP_DEFAULT_TIMEOUT_MS;
-
-         TimeoutHelper timeout(timeout_ms);
-
-         if (ldap_set_option(ldp, LDAP_OPT_TIMEOUT, &timeout)) {
-            xsink->raiseException("LDAP-ERROR", "failed to set LDAP timeout to %d ms; ldap_set_option(LDAP_OPT_TIMEOUT) failed", timeout_ms);
-            return;
-         }
-
-         p = opth->getKeyValue("no-referrals");
-         bool refp = p ? p->getAsBool() : 0;
-         if (refp && ldap_set_option(ldp, LDAP_OPT_REFERRALS, LDAP_OPT_OFF)) {
-            xsink->raiseException("LDAP-ERROR", "failed to disable LDAP referrals; ldap_set_option(LDAP_OPT_REFERRALS) failed");
-            return;
-         }
-
-         //printd(0, "QoreLdapClient::QoreLdapClient() set default timeout to %d ms\n", timeout_ms);
-      }
-      
+      }      
    }
    
-   DLLLOCAL QoreLdapClient(const QoreLdapClient& old, ExceptionSink* xsink) : ldp(0), uri(0), bh(0) {
+   DLLLOCAL QoreLdapClient(const QoreLdapClient& old, ExceptionSink* xsink) : ldp(0), uri(0), bh(0), prot(old.prot), timeout_ms(old.timeout_ms), tls(old.tls), no_referrals(old.no_referrals) {
       AutoLocker al(old.m);
-      if (old.checkValidIntern("constructor", xsink))
+      if (old.checkValidIntern("copy", xsink))
 	 return;
 
-      // get protocol version
-      int iv = 0;
-      ldap_get_option(old.ldp, LDAP_OPT_PROTOCOL_VERSION, &iv);
-      if (!iv)
-         iv = QORE_LDAP_DEFAULT_PROTOCOL;
-
-      if (initIntern(xsink, *old.uri, iv))
+      if (initIntern(xsink, "copy", *old.uri))
 	 return;
 
       if (old.bh && bindInitIntern(xsink, "copy", *old.bh))
@@ -572,6 +607,14 @@ public:
       return 0;
    }
    
+   DLLLOCAL bool isSecure(ExceptionSink* xsink) {
+      AutoLocker al(m);
+      if (checkValidIntern("isSecure", xsink))
+	 return -1;
+
+      return ldap_tls_inplace(ldp);
+   }
+
    DLLLOCAL int bind(const QoreHashNode& bindh, ExceptionSink* xsink) {
       AutoLocker al(m);
       if (checkValidIntern("bind", xsink))

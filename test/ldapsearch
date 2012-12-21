@@ -38,10 +38,11 @@ const opts = (
     "timeout": "l,timeout=i",
     "protocol": "P,protocol=i",
     "no-referrals": "r,no-referrals",
+    "starttls": "Z,starttls",
     "help": "h,help",
     );
 
-const LdapOptions = ("binddn", "password", "base", "timeout", "protocol", "no-referrals");
+const LdapOptions = ("binddn", "password", "base", "timeout", "protocol", "no-referrals", "starttls");
 
 sub main() {
     # process command-line options
@@ -96,6 +97,7 @@ Common LDAP Options:
   -r,--no-referrals  do not chase referrals
   -v,--verbose       verbose mode; shows more information
   -w,--passwd=ARG    bind password (for simple authentication)
+  -Z,--starttls      ensure a secure connection
 
 Other Options:
   -i,--info          show ldap library info and exit
