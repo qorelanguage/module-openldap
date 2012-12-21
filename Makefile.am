@@ -9,7 +9,11 @@ noinst_HEADERS = src/QoreLdapClient.h
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_LdapClient.qpp \
-	test/openldap-test.q \
+	src/openldap-module.h \
+	test/ldapadd \
+	test/ldapmodify \
+	test/ldapdelete \
+	test/ldapsearch \
 	qore-openldap-module.spec
 
 ACLOCAL_AMFLAGS=-I m4

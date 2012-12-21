@@ -46,8 +46,12 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.6
-BuildRequires: libopenldap-devel
+BuildRequires: qore-devel >= 0.8.7
+%if 0%{?suse_version} || 0%{?sles_version}
+BuildRequires: openldap2-devel
+%else
+BuildRequires: openldap-devel
+%endif
 BuildRequires: qore
 
 %description
