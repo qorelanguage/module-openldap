@@ -8,15 +8,23 @@
 
     This module is released under the <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a> and is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the Qore library was initialized).
 
-    Like all Qore components, the openldap module is thread-safe.  The @ref OpenLdap::LdapClient class wraps requests in a mutual-exclusion lock to ensure atomicity and thread-safety.  
+    Like all Qore components, the openldap module is thread-safe.  The @ref OpenLdap::LdapClient class represents a single network connection to the LDAP server and therefore wraps requests in a mutual-exclusion lock to ensure atomicity and thread-safety.  
 
     Asynchronous APIs are used internally to enforce time limits for each LDAP operation.  The default timeout for all LDAP operations is set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()" method with the \c "timeout" option, however each method requiring communication with the LDAP server also takes an option timeout argument that allows the default timeout to be overridden for specific calls.  If no \c "timeout" option is specifically set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()", the default timeout for the object is automatically set to 60 seconds.
+
+    @par Overview of Operations Supported by the LdapClient Class
+    - search: @ref OpenLdap::LdapClient::search() "LdapClient::search()"
+    - add: @ref OpenLdap::LdapClient::add() "LdapClient::add()"
+    - modify: @ref OpenLdap::LdapClient::modify() "LdapClient::modify()"
+    - delete: @ref OpenLdap::LdapClient::del() "LdapClient::del()"
+    - compare: @ref OpenLdap::LdapClient::compare() "LdapClient::compare()"
+    - rename/move: @ref OpenLdap::LdapClient::rename() "LdapClient::rename()"
 
     The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.    
 
     @section examples Examples
 
-    The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.
+    The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.  There are also four example programs included with the openldap module: ldapsearch, ldapmodify, ldapdelete, and ldapadd.  These are somewhat similar in usage to the standard LDAP commands, however are designed to provide user-friendly examples of command-line Qore-based LDAP integration, and, for example, do not support or work with LDIF formatted data, etc (for example, ldapsearch outputs the results of a search as a multi-line formatted Qore hash).
 
     @par Performing an LDAP Search
     @code
@@ -83,6 +91,13 @@ my LdapClient $ldap($uri, $conn_opts);
 $ldap.del("uid=test,ou=people,dc=example,dc=com");
     @endcode
     @see @ref OpenLdap::LdapClient::del() "LdapClient::del()"
+
+    @section limitations Limitations
+
+    This module currently has the following limitations:
+    - supports only simple binds
+    - extended operations are not supported
+    - server and client controls are not supported
 
     @section release_notes Release Notes
     @subsection rel10 openldap Module 1.0
