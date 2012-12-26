@@ -10,15 +10,16 @@
 
     Like all Qore components, the openldap module is thread-safe.  The @ref OpenLdap::LdapClient class represents a single network connection to the LDAP server and therefore wraps requests in a mutual-exclusion lock to ensure atomicity and thread-safety.  
 
-    Asynchronous APIs are used internally to enforce time limits for each LDAP operation.  The default timeout for all LDAP operations is set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()" method with the \c "timeout" option, however each method requiring communication with the LDAP server also takes an option timeout argument that allows the default timeout to be overridden for specific calls.  If no \c "timeout" option is specifically set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()", the default timeout for the object is automatically set to 60 seconds.
+    Asynchronous APIs are used internally to enforce time limits for each LDAP operation.  The default timeout for all LDAP operations is set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()" method with the \c "timeout" option, however each method requiring communication with the LDAP server also takes an optional timeout argument that allows the default timeout to be overridden for specific calls.  If no \c "timeout" option is specifically set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()", the default timeout for new objects is automatically set to 60 seconds.
 
-    @par Overview of Operations Supported by the LdapClient Class
-    - search: @ref OpenLdap::LdapClient::search() "LdapClient::search()"
-    - add: @ref OpenLdap::LdapClient::add() "LdapClient::add()"
-    - modify: @ref OpenLdap::LdapClient::modify() "LdapClient::modify()"
-    - delete: @ref OpenLdap::LdapClient::del() "LdapClient::del()"
-    - compare: @ref OpenLdap::LdapClient::compare() "LdapClient::compare()"
-    - rename/move: @ref OpenLdap::LdapClient::rename() "LdapClient::rename()"
+    <b>Overview of Operations Supported by the LdapClient Class</b>
+    |!Operation|!Method|!Description
+    |search|@ref OpenLdap::LdapClient::search() "LdapClient::search()"|Search for entries and attributes
+    |add|@ref OpenLdap::LdapClient::add() "LdapClient::add()"|Add entries to the Directory Information Tree
+    |modify|@ref OpenLdap::LdapClient::modify() "LdapClient::modify()"|Modify existing entries
+    |delete|@ref OpenLdap::LdapClient::del() "LdapClient::del()"|Delete existing Entries
+    |compare|@ref OpenLdap::LdapClient::compare() "LdapClient::compare()"|Compare attribute values
+    |rename|@ref OpenLdap::LdapClient::rename() "LdapClient::rename()"|Rename or move entries to another location in the Directory Information Tree
 
     The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.    
 

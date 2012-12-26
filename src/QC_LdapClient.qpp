@@ -343,7 +343,7 @@ $ldap.rename("uid=test,ou=people,dc=example,dc=com", "uid=test1", "ou=people,dc=
 
     @param dn the distinguished name of the entry to rename
     @param newrdn the new relative distinguished name of the entry
-    @param the distinguished name of the entry's new parent
+    @param newparent the distinguished name of the entry's new parent
     @param deleteoldrdn if this argument is \c False, then the old relative distinguished name will be maintained along with the new name, if \c True (the default), then the old attributes are deleted
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
 
