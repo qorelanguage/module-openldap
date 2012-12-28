@@ -566,7 +566,7 @@ protected:
 
       const QoreStringNode* binddn = check_hash_key<QoreStringNode>(xsink, bindh, "binddn", "LDAP-BIND-ERROR");
       if (!binddn) {
-         if (password)
+         if (password && !password->empty())
             xsink->raiseException("LDAP-BIND-ERROR", "password given but no bind DN given for bind");
 	 return -1;
       }
