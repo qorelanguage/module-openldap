@@ -330,6 +330,7 @@ struct QoreLDAPAPIInfoHelper : public LDAPAPIInfo {
    bool initialized;
 
    DLLLOCAL QoreLDAPAPIInfoHelper() : initialized(false) {
+      memset(this, 0, sizeof(LDAPAPIInfo));
       ldapai_info_version = LDAP_API_INFO_VERSION;
    }
 
@@ -367,6 +368,23 @@ struct TimeoutHelper : public timeval {
       tv_sec = ms / 1000;
       tv_usec = (ms - (tv_sec * 1000)) * 1000;
    }
+};
+
+class QoreStringBervalHelper : public berval, public QoreStringValueHelper {
+public:
+   DLLLOCAL QoreStringBervalHelper(const AbstractQoreNode* n, ExceptionSink* xsink) : QoreStringValueHelper(n, QCS_UTF8, xsink) {
+      if (*xsink)
+         return;
+      
+      if (!**this) {
+         bv_val = 0;
+         bv_len = 0;
+      }
+      else {
+         bv_val = (char*)(*this)->getBuffer();
+         bv_len = (*this)->size();
+      }
+   }   
 };
 
 class QoreLdapClient;
@@ -557,20 +575,9 @@ protected:
       if (*xsink)
          return -1;
 
-      struct berval passwd = {0, 0};
-      if (password) {
-         QoreStringValueHelper pstr(password, QCS_UTF8, xsink);
-         if (*xsink)
-            return -1;
-
-         passwd.bv_val = (char*)pstr->getBuffer();
-         passwd.bv_len = pstr->size();
-         /*
-         passwd.bv_val = ber_strdup(password);
-         ON_BLOCK_EXIT(ber_memfree, passwd.bv_val);
-         passwd.bv_len = strlen(passwd.bv_val);
-         */
-      }
+      QoreStringBervalHelper passwd(password, xsink);
+      if (*xsink)
+         return -1;
 
       int msgid;
 
@@ -916,8 +923,8 @@ public:
       AutoLocker al(m);
       if (checkValidIntern("rename", xsink))
 	 return -1;
-
-      printd(0, "LdapClient::rename() dn: '%s' newrdn: '%s' newparent: '%s' deleteoldrdn: %d\n", dnstr->getBuffer(), newrdnstr->getBuffer(), newparentstr->getBuffer(), (int)deleteoldrdn);
+      
+      //printd(5, "LdapClient::rename() dn: '%s' newrdn: '%s' newparent: '%s' deleteoldrdn: %d\n", dnstr->getBuffer(), newrdnstr->getBuffer(), newparentstr->getBuffer(), (int)deleteoldrdn);
       
       int msgid;
       if (checkLdapError("rename", "ldap_rename", ldap_rename(ldp, dnstr->empty() ? 0 : dnstr->getBuffer(), newrdnstr->empty() ? 0 : newrdnstr->getBuffer(), newparentstr->empty() ? 0 : newparentstr->getBuffer(), (int)deleteoldrdn, 0, 0, &msgid), xsink))
@@ -932,6 +939,41 @@ public:
       }
 
       return checkFreeResult("rename", "ldap_rename", res, xsink);
+   }
+
+   DLLLOCAL int passwd(ExceptionSink* xsink, const QoreStringNode* dn, const QoreStringNode* op, const QoreStringNode* np, int my_timeout_ms = 0) {
+      // convert strings to UTF-8 if necessary
+      QoreStringBervalHelper dnstr(dn, xsink);
+      if (*xsink)
+         return -1;
+
+      QoreStringBervalHelper opstr(op, xsink);
+      if (*xsink)
+         return -1;
+
+      QoreStringBervalHelper npstr(np, xsink);
+      if (*xsink)
+         return -1;
+
+      AutoLocker al(m);
+      if (checkValidIntern("passwd", xsink))
+	 return -1;
+
+      //printd(5, "LdapClient::passwd() dn: '%s' old: '%s' new: '%s'\n", dnstr->getBuffer(), opstr->getBuffer(), npstr->getBuffer());
+      
+      int msgid;
+      if (checkLdapError("passwd", "ldap_passwd", ldap_passwd(ldp, &dnstr, &opstr, &npstr, 0, 0, &msgid), xsink))
+         return -1;
+
+      LDAPMessage* res = 0;
+      TimeoutHelper timeout(my_timeout_ms);
+
+      if (checkLdapResult("passwd", "ldap_passwd", ldap_result(ldp, msgid, LDAP_MSG_ALL, my_timeout_ms ? &timeout : 0, &res), xsink)) {
+         assert(!res);
+         return -1;
+      }
+
+      return checkFreeResult("passwd", "ldap_passwd", res, xsink);
    }
 
    DLLLOCAL QoreStringNode* getUriStr() const {

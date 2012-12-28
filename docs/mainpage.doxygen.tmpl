@@ -20,12 +20,13 @@
     |delete|@ref OpenLdap::LdapClient::del() "LdapClient::del()"|Delete existing Entries
     |compare|@ref OpenLdap::LdapClient::compare() "LdapClient::compare()"|Compare attribute values
     |rename|@ref OpenLdap::LdapClient::rename() "LdapClient::rename()"|Rename or move entries to another location in the Directory Information Tree
+    |change password|@ref OpenLdap::LdapClient::passwd() "LdapClient::passwd()"|Changes the LDAP password for the given user
 
     The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.    
 
     @section examples Examples
 
-    The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.  There are also four example programs included with the openldap module: ldapsearch, ldapmodify, ldapdelete, and ldapadd.  These are somewhat similar in usage to the standard LDAP commands, however are designed to provide user-friendly examples of command-line Qore-based LDAP integration, and, for example, do not support or work with LDIF formatted data, etc (for example, ldapsearch outputs the results of a search as a multi-line formatted Qore hash).
+    The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.  There are also four example programs included with the openldap module: qldapsearch, qldapmodify, qldapdelete, qldapadd, and qldappasswd.  These are somewhat similar in usage to the standard LDAP commands, however are designed to provide user-friendly examples of command-line Qore-based LDAP integration, and, for example, do not support or work with LDIF formatted data, etc (for example, ldapsearch outputs the results of a search as a multi-line formatted Qore hash).
 
     @par Performing an LDAP Search
     @code
@@ -96,9 +97,10 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
     @section limitations Limitations
 
     This module currently has the following limitations:
-    - supports only simple binds
+    - supports only simple SASL binds
     - extended operations are not supported
     - server and client controls are not supported
+    - LDAP transactions are not supported
 
     @section release_notes Release Notes
     @subsection rel10 openldap Module 1.0

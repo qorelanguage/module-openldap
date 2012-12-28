@@ -357,6 +357,27 @@ nothing LdapClient::rename(string dn, string newrdn, string newparent, softbool 
    ldap->rename(xsink, dn, newrdn, newparent, deleteoldrdn, timeout_ms);
 }
 
+//! changes the LDAP password of a user
+/** @par Example:
+    @code
+$ldap.passwd("uid=test,ou=people,dc=example,dc=com", "oldpwd", "newpwd");
+    @endcode
+
+    @param dn the distinguished name of the user whose password to change
+    @param oldpwd the old password
+    @param newpwd the new password
+    @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
+
+    @note strings are converted to UTF-8 before sending to the server if necessary
+
+    @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
+    @throw LDAP-ERROR an error occurred performing the password change operation
+    @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
+*/
+nothing LdapClient::passwd(string dn, string oldpwd, string newpwd, *timeout timeout_ms) {
+   ldap->passwd(xsink, dn, oldpwd, newpwd, timeout_ms);
+}
+
 //! returns the URI string used to connect to the LDAP server
 /** @par Example:
     @code

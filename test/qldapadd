@@ -1,0 +1,188 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%enable-all-warnings
+
+# uses the openldap module
+%requires openldap
+
+# ensure minimum version of qore
+%requires qore >= 0.8.7
+
+main();
+
+const Defaults = (
+    "uri": "ldap://localhost:389",
+    );
+
+const opts = (
+    # add
+    "sep": "s,separator=s",
+
+    # common
+    "uri": "H,uri=s",
+    "binddn": "D,binddn=s",
+    "password": "w,passwd=s",
+    "promptbind": "W,prompt-bind",
+    "info": "i,info",
+    "verbose": "v,verbose",
+    "timeout": "l,timeout=i",
+    "protocol": "P,protocol=i",
+    "no-referrals": "r,no-referrals",
+    "starttls": "Z,starttls",
+    "help": "h,help",
+    );
+
+const LdapOptions = ("binddn", "password", "timeout", "protocol", "no-referrals", "starttls");
+
+sub main() {
+    # process command-line options
+    GetOpt g(opts);
+    hash opts = g.parse3(\ARGV);
+    if (opts.help)
+	usage();
+
+    if (opts.info) {
+	printf("%N\n", LdapClient::getInfo());
+	exit(0);
+    }
+
+    *string dn = shift ARGV;
+    if (!dn)
+        error("missing dn to add");
+
+    if (opts.sep) {
+        if (opts.sep.length() > 1)
+            error("separator character can only be max 1 character long (value given: %y; size %d characters)", opts.sep, opts.sep.length());
+    }
+    else
+        opts.sep = ",";
+
+    if (!opts.uri)
+	opts.uri = Defaults.uri;
+
+    # get attribute hash
+    hash attr;
+    while (ARGV) {
+        string attrstr = shift ARGV;
+        
+        (*string key, any val) = (attrstr =~ x/^([^=]+)=(.*)$/);
+        if (!key)
+            error("attribute not in <key>=<value> format: '%s'", attrstr);
+        if (attr{key})
+            error("attribute '%s' specified twice", key);
+
+        if (val && val.find(opts.sep) != -1)
+            val = val.split(opts.sep);
+
+        attr{key} = val;
+    }
+    if (!attr)
+        error("missing attributes for '%s'", dn);
+
+    if (opts.promptbind) {
+        stdout.printf("Enter LDAP Bind Password: ");
+        TerminalInputHelper t();
+        opts.password = t.getLine();
+    }
+
+    hash lopt = opts{LdapOptions};
+
+    if (opts.verbose)
+        printf("uri: %y, lopt: %y, dn: %y, attr: %y\n", opts.uri, lopt, dn, attr);
+
+    LdapClient ldap(opts.uri, lopt);
+    ldap.add(dn, attr);
+}
+
+sub error(string fmt) {
+    fmt = sprintf("%s: %s\n", get_script_name(), fmt);
+    stderr.vprintf(fmt, argv);
+    exit(1);
+}
+
+sub usage() {
+    printf("usage: %s [options] <dn> <attr>=<value> [<attr>=<value> ...]
+Add Options:
+  -s,--separator=ARG  specify list separator char (default: ',')
+
+Common LDAP Options:
+  -D,--binddn=ARG     bind DN
+  -H,--uri=ARG        LDAP Uniform Resource Identifier(s)
+  -l,--timeout=ARG    set timeout in milliseconds (default: %y)
+  -P,--protocol=ARG   set protocol version (default: 3)
+  -r,--no-referrals   do not chase referrals
+  -v,--verbose        verbose mode; shows more information
+  -w,--passwd=ARG     bind password (for simple authentication)
+  -W,--prompt-bind    prompt for bind password
+  -Z,--starttls       ensure a secure connection
+
+Other Options:
+  -i,--info           show ldap library info and exit
+  -h,--help           this help text
+", get_script_name(), OpenLdap::DefaultTimeout);
+    exit(0);
+}
+
+class TerminalInputHelper {
+    private {
+        # saved original terminal attributes
+        TermIOS orig = stdin.getTerminalAttributes();
+
+        # input terminal attributes
+        TermIOS input;
+
+        # restore flag
+        bool rest = False;
+    }
+    
+    public {}
+
+    constructor() {
+        input = orig.copy();
+
+        # get local flags
+        int lflag = input.getLFlag();
+
+        # turn on "raw" mode: disable canonical input mode
+        lflag &= ~ICANON;
+
+        # turn off echo mode
+        lflag &= ~ECHO;
+
+        # set the new local flags
+        input.setLFlag(lflag);
+
+        # turn off input buffering: set minimum characters to return on a read
+        input.setCC(VMIN, 1);
+
+        # disable input timer: set character input timer to 0.1 second increments
+        input.setCC(VTIME, 0);
+    }
+
+    destructor() {
+        if (rest)
+            restore();
+    }
+
+    *string getLine() {
+        # set input attributes
+        stdin.setTerminalAttributes(TCSADRAIN, input);
+        rest = True;
+
+        # restore attributes on exit
+        on_exit {
+            stdin.setTerminalAttributes(TCSADRAIN, orig);
+            rest = False;
+            stdout.print("\n");
+        }
+
+        return stdin.readLine(False);
+    }
+
+    restore() {
+        # restore terminal attributes
+        stdin.setTerminalAttributes(TCSADRAIN, orig);
+    }
+}
