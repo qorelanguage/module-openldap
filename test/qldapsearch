@@ -29,10 +29,11 @@ const opts = (
     "base": "b,basedn=s",
     "scope": "s,scope=s",
 
-    #common
+    # common
     "uri": "H,uri=s",
     "binddn": "D,binddn=s",
     "password": "w,passwd=s",
+    "promptbind": "W,prompt-bind",
     "info": "i,info",
     "verbose": "v,verbose",
     "timeout": "l,timeout=i",
@@ -71,6 +72,13 @@ sub main() {
     }
     else
 	opts.filter = Defaults.filter;
+
+    if (opts.promptbind) {
+        stdout.printf("Enter LDAP Bind Password: ");
+        TerminalInputHelper t();
+        opts.password = t.getLine();
+    }
+
     hash lopt = opts{LdapOptions};
     if (!opts.uri)
 	opts.uri = Defaults.uri;
@@ -97,6 +105,7 @@ Common LDAP Options:
   -r,--no-referrals  do not chase referrals
   -v,--verbose       verbose mode; shows more information
   -w,--passwd=ARG    bind password (for simple authentication)
+  -W,--prompt-bind   prompt for bind password
   -Z,--starttls      ensure a secure connection
 
 Other Options:
@@ -104,4 +113,66 @@ Other Options:
   -h,--help          this help text
 ", get_script_name(), OpenLdap::DefaultTimeout);
     exit(0);
+}
+
+class TerminalInputHelper {
+    private {
+        # saved original terminal attributes
+        TermIOS orig = stdin.getTerminalAttributes();
+
+        # input terminal attributes
+        TermIOS input;
+
+        # restore flag
+        bool rest = False;
+    }
+    
+    public {}
+
+    constructor() {
+        input = orig.copy();
+
+        # get local flags
+        int lflag = input.getLFlag();
+
+        # turn on "raw" mode: disable canonical input mode
+        lflag &= ~ICANON;
+
+        # turn off echo mode
+        lflag &= ~ECHO;
+
+        # set the new local flags
+        input.setLFlag(lflag);
+
+        # turn off input buffering: set minimum characters to return on a read
+        input.setCC(VMIN, 1);
+
+        # disable input timer: set character input timer to 0.1 second increments
+        input.setCC(VTIME, 0);
+    }
+
+    destructor() {
+        if (rest)
+            restore();
+    }
+
+    *string getLine() {
+        # set input attributes
+        stdin.setTerminalAttributes(TCSADRAIN, input);
+        rest = True;
+
+        # restore attributes on exit
+        on_exit {
+            stdin.setTerminalAttributes(TCSADRAIN, orig);
+            rest = False;
+            stdout.print("\n");
+        }
+
+        return stdin.readLine(False);
+    }
+
+    restore() {
+        # restore terminal attributes
+        stdin.setTerminalAttributes(TCSADRAIN, orig);
+    }
 }
