@@ -1,0 +1,39 @@
+Qore openldap module
+
+INTRODUCTION
+------------
+The Qore openldap module provides LDAP functionality to Qore by using the
+openldap (http://www.openldap.org) client library to provide a Qore API to
+talk to LDAP servers.
+
+The LDAP API is standard but this module was specifically designed to compile
+and link with the openldap APIs and has not been tested with other LDAP APIs.
+
+see docs for more information
+
+
+BUILDING
+--------
+Requires qore 0.8.7+ and openssl headers and libraries to build and run
+
+to configure the build, execute
+        configure --disable-debug
+
+if the qore library cannot be found, then you can use:
+        configure --disable-debug --with-qore=<dir>
+
+if the openldap library or headers cannot be found, then you can use:
+        configure --disable-debug --with-openldap=<dir>
+
+(or set the OPENLDAP_DIR environment variable before callinf configure)
+
+The qore binary also needs to be in the path so configure can determine the module directory
+
+Then execute
+
+make && make install
+
+(or 'make && sudo make install' as needed)
+
+please direct any questions to:
+david@qore.org
