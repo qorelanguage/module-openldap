@@ -12,6 +12,12 @@ and link with the openldap APIs and has not been tested with other LDAP APIs.
 see docs for more information
 
 
+LICENSE
+-------
+This module is released under a choice of two licenses: LGPL 2.1 and MIT, see
+COPYING.LGPL and COPYING.MIT for more information
+
+
 BUILDING
 --------
 Requires qore 0.8.7+ and openssl headers and libraries to build and run
