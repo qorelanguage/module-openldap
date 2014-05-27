@@ -2,7 +2,7 @@
 
     @tableofcontents
 
-    @section intro Introduction
+    @section openldapintro Introduction
 
     The openldap module exposes functionality from the <a href="http://www.openldap.org">openldap</a> library as a Qore API, allowing qore programs to communicate with LDAP servers.
 
@@ -24,7 +24,7 @@
 
     The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.    
 
-    @section examples Examples
+    @section openldap_examples Examples
 
     The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.  There are also four example programs included with the openldap module: qldapsearch, qldapmodify, qldapdelete, qldapadd, and qldappasswd.  These are somewhat similar in usage to the standard LDAP commands, however are designed to provide user-friendly examples of command-line Qore-based LDAP integration, and, for example, do not support or work with LDIF formatted data, etc (for example, qldapsearch outputs the results of a search as a multi-line formatted Qore hash).
 
@@ -94,7 +94,7 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
     @endcode
     @see @ref OpenLdap::LdapClient::del() "LdapClient::del()"
 
-    @section limitations Limitations
+    @section openldap_limitations Limitations
 
     This module currently has the following limitations:
     - supports only simple SASL binds
@@ -102,7 +102,11 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
     - server and client controls are not supported
     - LDAP transactions are not supported
 
-    @section release_notes Release Notes
-    @subsection rel10 openldap Module 1.0
-    Initial release of the module.
+    @section openldap_release_notes Release Notes
+
+    @subsection openldap_rel11 openldap Module 1.1
+    - disable openssl cleanup in the Qore library since the openldap module makes openssl cleanup calls and calling those routines twice can result in segfaults
+
+    @subsection openldap_rel10 openldap Module 1.0
+    - Initial release of the module.
 */

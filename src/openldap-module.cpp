@@ -58,6 +58,10 @@ static QoreStringNode* openldap_module_init() {
    if (err)
       return err;
 
+   // disable openssl cleanup when using the openldap module, since it will do that itself, and
+   // calling openssl cleanup routines twice can cause segmentation faults
+   qore_set_library_cleanup_options(QLO_DISABLE_OPENSSL_CLEANUP);
+
    OLNS.addSystemClass(initLdapClientClass(OLNS));
 
    return 0;

@@ -1,4 +1,4 @@
-%define mod_ver 1.0
+%define mod_ver 1.1
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -46,7 +46,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.7
+BuildRequires: qore-devel >= 0.8.9
 %if 0%{?suse_version} || 0%{?sles_version}
 BuildRequires: openldap2-devel
 %else
@@ -97,6 +97,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES ChangeLog AUTHORS 
 
 %changelog
+* Tue May 27 2014 David Nichols <david@qore.org> 1.1
+- updated to v1.1
+
 * Fri Dec 21 2012 David Nichols <david@qore.org> 1.0
 - updated to v1.0 for initial release
 
