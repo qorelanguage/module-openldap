@@ -25,7 +25,6 @@ src/.deps/
 src/.libs/
 src/Makefile
 src/Makefile.in
-src/QC_LdapClient.cpp
 src/*.dox.h
 src/qc_*.cpp
 src/ql_*.cpp
