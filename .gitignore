@@ -27,3 +27,6 @@ src/Makefile
 src/Makefile.in
 src/QC_LdapClient.cpp
 src/*.dox.h
+src/qc_*.cpp
+src/ql_*.cpp
+src/QC_*.cpp
