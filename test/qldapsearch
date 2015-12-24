@@ -1,8 +1,10 @@
 #!/usr/bin/env qore
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
-%new-style
 %enable-all-warnings
+%new-style
+%strict-args
+%require-types
 
 # uses the openldap module
 %requires openldap
@@ -126,7 +128,7 @@ class TerminalInputHelper {
         # restore flag
         bool rest = False;
     }
-    
+
     public {}
 
     constructor() {

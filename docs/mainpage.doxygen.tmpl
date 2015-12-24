@@ -8,7 +8,7 @@
 
     This module is released under the <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a> and is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the Qore library was initialized).
 
-    Like all Qore components, the openldap module is thread-safe.  The @ref OpenLdap::LdapClient class represents a single network connection to the LDAP server and therefore wraps requests in a mutual-exclusion lock to ensure atomicity and thread-safety.  
+    Like all Qore components, the openldap module is thread-safe.  The @ref OpenLdap::LdapClient class represents a single network connection to the LDAP server and therefore wraps requests in a mutual-exclusion lock to ensure atomicity and thread-safety.
 
     Asynchronous APIs are used internally to enforce time limits for each LDAP operation.  The default timeout for all LDAP operations is set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()" method with the \c "timeout" option, however each method requiring communication with the LDAP server also takes an optional timeout argument that allows the default timeout to be overridden for specific calls.  If no \c "timeout" option is specifically set in the @ref OpenLdap::LdapClient::constructor() "LdapClient::constructor()", the default timeout for new objects is automatically set to 60 seconds.
 
@@ -22,7 +22,7 @@
     |rename|@ref OpenLdap::LdapClient::rename() "LdapClient::rename()"|Rename or move entries to another location in the Directory Information Tree
     |change password|@ref OpenLdap::LdapClient::passwd() "LdapClient::passwd()"|Changes the LDAP password for the given user
 
-    The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.    
+    The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.
 
     @section openldap_examples Examples
 
@@ -106,6 +106,7 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
 
     @subsection openldap_rel11 openldap Module 1.1
     - disable openssl cleanup in the Qore library since the openldap module makes openssl cleanup calls and calling those routines twice can result in segfaults
+    - updated example/test scripts to use %%strict-args
 
     @subsection openldap_rel10 openldap Module 1.0
     - Initial release of the module.
