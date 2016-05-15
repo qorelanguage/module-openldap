@@ -5,6 +5,7 @@ Version 1.1
 * disable openssl cleanup in the Qore library since the openldap module makes
   openssl cleanup calls and calling those routines twice can result in
   segfaults
+* updated scripts to use strict-args
 
 
 -----------
