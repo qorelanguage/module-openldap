@@ -1,8 +1,10 @@
 #!/usr/bin/env qore
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
-%new-style
 %enable-all-warnings
+%new-style
+%strict-args
+%require-types
 
 # uses the openldap module
 %requires openldap
@@ -78,7 +80,7 @@ sub main() {
         string op2 = t.getLine();
         if (op1 != op2)
             error("new passwords do not match");
-        
+
         opts.newpwd = op1;
     }
 
@@ -140,7 +142,7 @@ class TerminalInputHelper {
         # restore flag
         bool rest = False;
     }
-    
+
     public {}
 
     constructor() {

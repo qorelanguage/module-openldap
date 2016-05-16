@@ -24,7 +24,7 @@
 #ifndef _QORE_OPENLDAP_MODULE_H
 #define _QORE_OPENLDAP_MODULE_H
 
-#include "../config.h"
+#include <config.h>
 
 #include <qore/Qore.h>
 

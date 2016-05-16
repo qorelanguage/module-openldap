@@ -1,8 +1,10 @@
 #!/usr/bin/env qore
 # -*- mode: qore; indent-tabs-mode: nil -*-
 
-%new-style
 %enable-all-warnings
+%new-style
+%strict-args
+%require-types
 
 # uses the openldap module
 %requires openldap
@@ -66,7 +68,7 @@ sub main() {
     hash attr;
     while (ARGV) {
         string attrstr = shift ARGV;
-        
+
         (*string key, any val) = (attrstr =~ x/^([^=]+)=(.*)$/);
         if (!key)
             error("attribute not in <key>=<value> format: '%s'", attrstr);
@@ -136,7 +138,7 @@ class TerminalInputHelper {
         # restore flag
         bool rest = False;
     }
-    
+
     public {}
 
     constructor() {
