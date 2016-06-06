@@ -6,7 +6,7 @@ SUBDIRS = src
 
 noinst_HEADERS = src/QoreLdapClient.h
 
-EXTRA_DIST = COPYING.MIT COPYING.LGPL ChangeLog AUTHORS README \
+EXTRA_DIST = COPYING.MIT COPYING.LGPL AUTHORS README \
 	RELEASE-NOTES \
 	src/QC_LdapClient.qpp \
 	src/openldap-module.h \
