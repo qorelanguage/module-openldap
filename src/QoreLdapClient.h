@@ -261,7 +261,7 @@ protected:
 
       p = h->getKeyValue("value");
 
-      std::auto_ptr<QoreLDAPMod> modp(new QoreLDAPMod(mod_op, attr->getBuffer(), p, "LDAP-MODIFY-ERROR", xsink));
+      std::unique_ptr<QoreLDAPMod> modp(new QoreLDAPMod(mod_op, attr->getBuffer(), p, "LDAP-MODIFY-ERROR", xsink));
       if (*xsink)
          return -1;
 
@@ -270,7 +270,7 @@ protected:
    }
 
    DLLLOCAL virtual int addElement(size_t index, const ConstHashIterator& hi, ExceptionSink* xsink) {
-      std::auto_ptr<QoreLDAPMod> mod(new QoreLDAPMod(LDAP_MOD_ADD, hi.getKey(), hi.getValue(), "LDAP-ADD-ERROR", xsink));
+      std::unique_ptr<QoreLDAPMod> mod(new QoreLDAPMod(LDAP_MOD_ADD, hi.getKey(), hi.getValue(), "LDAP-ADD-ERROR", xsink));
       if (*xsink)
          return -1;
 
