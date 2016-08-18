@@ -104,6 +104,9 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
 
     @section openldap_release_notes Release Notes
 
+    @subsection openldap_rel11 openldap Module 1.1.1
+    - fixed a bug where incorrect class destructor is called in openldap module (<a href="https://github.com/qorelanguage/qore/issues/1174">issue 1174</a>)
+
     @subsection openldap_rel11 openldap Module 1.1
     - disable openssl cleanup in the Qore library since the openldap module makes openssl cleanup calls and calling those routines twice can result in segfaults
     - updated example/test scripts to use %%strict-args
