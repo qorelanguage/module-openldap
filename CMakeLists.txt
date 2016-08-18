@@ -8,6 +8,15 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(Qore REQUIRED)
 find_package(OpenLDAP REQUIRED)
 
+# Check for C++11.
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+else()
+    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+endif()
+
 check_cxx_compiler_flag(-fvisibility=hidden HAVE_GCC_VISIBILITY)
 
 configure_file(${CMAKE_SOURCE_DIR}/cmake/config.h.cmake config.h)
