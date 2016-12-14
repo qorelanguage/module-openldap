@@ -261,7 +261,7 @@ protected:
 
       p = h->getKeyValue("value");
 
-      std::auto_ptr<QoreLDAPMod> modp(new QoreLDAPMod(mod_op, attr->getBuffer(), p, "LDAP-MODIFY-ERROR", xsink));
+      std::unique_ptr<QoreLDAPMod> modp(new QoreLDAPMod(mod_op, attr->getBuffer(), p, "LDAP-MODIFY-ERROR", xsink));
       if (*xsink)
          return -1;
 
@@ -270,7 +270,7 @@ protected:
    }
 
    DLLLOCAL virtual int addElement(size_t index, const ConstHashIterator& hi, ExceptionSink* xsink) {
-      std::auto_ptr<QoreLDAPMod> mod(new QoreLDAPMod(LDAP_MOD_ADD, hi.getKey(), hi.getValue(), "LDAP-ADD-ERROR", xsink));
+      std::unique_ptr<QoreLDAPMod> mod(new QoreLDAPMod(LDAP_MOD_ADD, hi.getKey(), hi.getValue(), "LDAP-ADD-ERROR", xsink));
       if (*xsink)
          return -1;
 
@@ -326,30 +326,87 @@ public:
    }
 };
 
-struct QoreLDAPAPIInfoHelper : public LDAPAPIInfo {
-   bool initialized;
+class QoreLDAPAPIInfoHelper {
+private:
+    DLLLOCAL QoreLDAPAPIInfoHelper(const QoreLDAPAPIInfoHelper &);
+    DLLLOCAL QoreLDAPAPIInfoHelper &operator=(const QoreLDAPAPIInfoHelper &);
+protected:
+    bool initialized;
+    LDAPAPIInfo apiInfo;
+public:
 
-   DLLLOCAL QoreLDAPAPIInfoHelper() : initialized(false) {
-      memset(this, 0, sizeof(LDAPAPIInfo));
-      ldapai_info_version = LDAP_API_INFO_VERSION;
-   }
+    DLLLOCAL QoreLDAPAPIInfoHelper() : initialized(false) {
+#if LDAP_API_INFO_VERSION == 1
+        apiInfo.ldapai_info_version = LDAP_API_INFO_VERSION;
+#else
+#error "unsupported LDAP_API_INFO_VERSION"
+#endif
+    }
 
-   DLLLOCAL ~QoreLDAPAPIInfoHelper() {
-      if (!initialized)
-         return;
+    DLLLOCAL ~QoreLDAPAPIInfoHelper() {
+        if (initialized) {
+            /* from man page for ldap_get_info:
+             *  version passed in does not match
+             *  the current library version, the expected version number will be
+             *  stored in the struct and the call  will  fail.   The  caller  is
+             *  responsible  for  freeing  the elements of the ldapai_extensions
+             *  array and the array itself using  ldap_memfree(3).   The  caller
+             *  must  also  free  the  ldapi_vendor_name.
+             */
+            ldap_memfree(apiInfo.ldapai_vendor_name);
+            apiInfo.ldapai_vendor_name = 0;
+            if (apiInfo.ldapai_extensions) {
+                size_t nextensions = sizeof(apiInfo.ldapai_extensions) / sizeof(apiInfo.ldapai_extensions[0]);
+                for (size_t i = 0; i < nextensions; ++i) {
+                    ldap_memfree(apiInfo.ldapai_extensions[i]);
+                }
+                ldap_memfree(apiInfo.ldapai_extensions);
+                apiInfo.ldapai_extensions = 0;
+            }
+        }
+    }
 
-      ldap_memfree(ldapai_vendor_name);
-      if (ldapai_extensions)
-         ber_memvfree((void**)ldapai_extensions);
-   }
+    DLLLOCAL int init() {
+        assert(!initialized);
+        int ec = ldap_get_option(0, LDAP_OPT_API_INFO, &apiInfo);
+        if (!ec) {
+            initialized = true;
+        }
+        else {
+            printf("error while ldap initialization: %d\n", ec);
+        }
+        return ec;
+    }
 
-   DLLLOCAL int init() {
-      assert(!initialized);
-      int ec = ldap_get_option(0, LDAP_OPT_API_INFO, this);
-      if (!ec)
-         initialized = true;
-      return ec;
-   }
+    DLLLOCAL QoreStringNode *checkVersion() {
+        if (apiInfo.ldapai_info_version != LDAP_API_INFO_VERSION)
+            return new QoreStringNodeMaker("cannot load the openldap module due to a library info version mismatch; module was compiled with API info version %d but the library provides API info version %d", LDAP_API_INFO_VERSION, apiInfo.ldapai_info_version);
+
+        if (apiInfo.ldapai_api_version != LDAP_API_VERSION)
+            return new QoreStringNodeMaker("cannot load the openldap module due to a library version mismatch; module was compiled with API version %d but the library provides API version %d", LDAP_API_VERSION, apiInfo.ldapai_api_version);
+
+        if (strcmp(apiInfo.ldapai_vendor_name, LDAP_VENDOR_NAME))
+            return new QoreStringNodeMaker("cannot load the openldap module due to a library vendor name mismatch; module was compiled with a library from '%s' but the library is now running with a library from '%s'", LDAP_VENDOR_NAME, apiInfo.ldapai_vendor_name);
+
+        if (apiInfo.ldapai_vendor_version != LDAP_VENDOR_VERSION)
+            return new QoreStringNodeMaker("cannot load the openldap module due to a library vendor version mismatch; module was compiled with API vendor version %d but the library provides API vendor version %d", LDAP_VENDOR_VERSION, apiInfo.ldapai_vendor_version);
+
+        return 0;
+    }
+
+    DLLLOCAL void fillInfoHash(QoreHashNode *h) {
+        assert(h);
+        h->setKeyValue("ApiVersion", new QoreBigIntNode(apiInfo.ldapai_api_version), 0);
+        h->setKeyValue("ProtocolVersion", new QoreBigIntNode(apiInfo.ldapai_protocol_version), 0);
+        h->setKeyValue("VendorName", new QoreStringNode(apiInfo.ldapai_vendor_name), 0);
+        h->setKeyValue("VendorVersion", new QoreBigIntNode(apiInfo.ldapai_vendor_version), 0);
+
+        QoreListNode* el = new QoreListNode;
+        for (unsigned i = 0; apiInfo.ldapai_extensions[i]; ++i)
+            el->push(new QoreStringNode(apiInfo.ldapai_extensions[i]));
+
+        h->setKeyValue("Extensions", el, 0);
+    }
 };
 
 struct TimeoutHelper : public timeval {
@@ -987,19 +1044,8 @@ public:
       if (ec)
 	 return new QoreStringNodeMaker("the openldap library returned error code %d: %s to the ldap_get_option(LDAP_OPT_API_INFO) function", ec, ldap_err2string(ec));
 
-      if (ai.ldapai_info_version != LDAP_API_INFO_VERSION)
-	 return new QoreStringNodeMaker("cannot load the openldap module due to a library info version mismatch; module was compiled with API info version %d but the library provides API info version %d", LDAP_API_INFO_VERSION, ai.ldapai_info_version);
-	 
-      if (ai.ldapai_api_version != LDAP_API_VERSION)
-	 return new QoreStringNodeMaker("cannot load the openldap module due to a library version mismatch; module was compiled with API version %d but the library provides API version %d", LDAP_API_VERSION, ai.ldapai_api_version);
-
-      if (strcmp(ai.ldapai_vendor_name, LDAP_VENDOR_NAME))
-	 return new QoreStringNodeMaker("cannot load the openldap module due to a library vendor name mismatch; module was compiled with a library from '%s' but the library is now running with a library from '%s'", LDAP_VENDOR_NAME, ai.ldapai_vendor_name);
-
-      if (ai.ldapai_vendor_version != LDAP_VENDOR_VERSION)
-	 return new QoreStringNodeMaker("cannot load the openldap module due to a library vendor version mismatch; module was compiled with API vendor version %d but the library provides API vendor version %d", LDAP_VENDOR_VERSION, ai.ldapai_vendor_version);
-
-      return 0;
+      QoreStringNode *ret = ai.checkVersion();
+      return ret;
    }
 
    DLLLOCAL static QoreHashNode* getInfo() {
@@ -1009,16 +1055,7 @@ public:
       if (ai.init())
 	 return h;
 
-      h->setKeyValue("ApiVersion", new QoreBigIntNode(ai.ldapai_api_version), 0);
-      h->setKeyValue("ProtocolVersion", new QoreBigIntNode(ai.ldapai_protocol_version), 0);
-      h->setKeyValue("VendorName", new QoreStringNode(ai.ldapai_vendor_name), 0);
-      h->setKeyValue("VendorVersion", new QoreBigIntNode(ai.ldapai_vendor_version), 0);
-      
-      QoreListNode* el = new QoreListNode;
-      for (unsigned i = 0; ai.ldapai_extensions[i]; ++i)
-	 el->push(new QoreStringNode(ai.ldapai_extensions[i]));
-      
-      h->setKeyValue("Extensions", el, 0);
+      ai.fillInfoHash(h);
       return h;
    }
 };

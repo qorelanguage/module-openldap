@@ -24,6 +24,11 @@
 
     The underlying %LDAP functionality is provided by the <a href="http://www.openldap.org">openldap library</a>.
 
+    @section openldap_installation Installation notes
+
+    If you intend to use the <i>oracle</i> module along with <i>openldap</i> on Linux, then you will probably be facing the issue https://github.com/qorelanguage/qore/issues/1043.
+    Currently we don't have a generic solution for the issue, but there is a work-around using \c LDPRELOAD.
+
     @section openldap_examples Examples
 
     The bulk of the LDAP functionality provided by this module is encapsulated in the @ref OpenLdap::LdapClient class.  There are also four example programs included with the openldap module: qldapsearch, qldapmodify, qldapdelete, qldapadd, and qldappasswd.  These are somewhat similar in usage to the standard LDAP commands, however are designed to provide user-friendly examples of command-line Qore-based LDAP integration, and, for example, do not support or work with LDIF formatted data, etc (for example, qldapsearch outputs the results of a search as a multi-line formatted Qore hash).
@@ -103,6 +108,8 @@ $ldap.del("uid=test,ou=people,dc=example,dc=com");
     - LDAP transactions are not supported
 
     @section openldap_release_notes Release Notes
+
+    @subsection openldap_rel12 openldap Module 1.2
 
     @subsection openldap_rel11 openldap Module 1.1.1
     - fixed a bug where incorrect class destructor is called in openldap module (<a href="https://github.com/qorelanguage/qore/issues/1174">issue 1174</a>)
