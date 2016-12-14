@@ -1,7 +1,13 @@
 MNAME=openldap
 
+if COND_MINGW
+QPP=qpp_native
+else
+QPP=qpp
+endif
+
 QC_LdapClient.cpp: QC_LdapClient.qpp
-	qpp $<
+	$(QPP) $<
 
 GENERATED_SOURCES = QC_LdapClient.cpp
 CLEANFILES = $(GENERATED_SOURCES)
