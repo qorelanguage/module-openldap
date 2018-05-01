@@ -46,7 +46,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.9
+BuildRequires: qore-devel >= 0.8.13
 %if 0%{?suse_version} || 0%{?sles_version}
 BuildRequires: openldap2-devel
 %else
@@ -97,6 +97,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES AUTHORS
 
 %changelog
+* Tue May 1 2018 David Nichols <david@qore.org> 1.2
+- updated to v1.2
+
 * Tue May 27 2014 David Nichols <david@qore.org> 1.1
 - updated to v1.1
 
