@@ -7,7 +7,7 @@ QPP=qpp
 endif
 
 QC_LdapClient.cpp: QC_LdapClient.qpp
-	$(QPP) $<
+	$(QPP) -V $<
 
 GENERATED_SOURCES = QC_LdapClient.cpp
 CLEANFILES = $(GENERATED_SOURCES)

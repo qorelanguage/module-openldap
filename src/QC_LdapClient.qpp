@@ -1,24 +1,24 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
-  QC_LdapClient.qpp
-  
-  Qore Programming Language
-  
-  Copyright 2003 - 2012 David Nichols
+    QC_LdapClient.qpp
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-  
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-  
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    Qore Programming Language
+
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "openldap-module.h"
@@ -39,7 +39,7 @@ int QoreLdapParseResultHelper::check() const {
    if (matched)
       desc->sprintf(" (matched: '%s')", matched);
    //if (refs) { }
-   
+
    xsink->raiseException("LDAP-RESULT-ERROR", desc);
    return -1;
 }
@@ -110,8 +110,8 @@ namespace OpenLdap;
 const DefaultTimeout = 60s;
 //@}
 
-//! The LdapClient class 
-/** 
+//! The LdapClient class
+/**
  */
 qclass LdapClient [arg=QoreLdapClient* ldap; dom=NETWORK; ns=OpenLdap];
 
@@ -160,7 +160,7 @@ LdapClient::destructor() {
 }
 
 //! Creates a new LdapClient object based on the original
-/** 
+/**
     @par Example:
     @code
 my LdapClient $ldap2 = $ldap.copy();
@@ -198,7 +198,7 @@ LdapClient::bind(hash bind, *timeout timeout_ms) {
    ldap->bind(xsink, *bind, timeout_ms);
 }
 
-//! performs a search on the LDAP server 
+//! performs a search on the LDAP server
 /** @par Example:
     @code
 my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=*)", "attributes": "uid");
@@ -220,30 +220,30 @@ my hash $h = $ldap.search(("base": "dc=example,dc=cp,", "filter": "(objectClass=
     @throw ENCODING-CONVERSION-ERROR this exception could be thrown if there is an error converting any string's encoding to UTF-8 before sending to the server
  */
 hash LdapClient::search(hash h, *timeout timeout_ms) {
-   const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
-   const QoreStringNode* filter = check_hash_key<QoreStringNode>(xsink, *h, "filter", "LDAP-SEARCH-ERROR");
-   const AbstractQoreNode* n = h->getKeyValue("attributes");
-   ReferenceHolder<QoreListNode> attrl(xsink);
-   if (n) {
-      if (n->getType() == NT_STRING) {
-         attrl = new QoreListNode;
-         attrl->push(n->refSelf());
-      }
-      else if (n->getType() == NT_LIST)
-         attrl = reinterpret_cast<const QoreListNode*>(n)->listRefSelf();
-      else {
-         xsink->raiseException("LDAPCLIENT-SEARCH-ERROR", "the 'attributes' key of the search hash contains type '%s' (expecting 'list' or 'string')", get_type_name(n));
-         return 0;
-      }
-   }
+    const QoreStringNode* base = check_hash_key<QoreStringNode>(xsink, *h, "base", "LDAP-SEARCH-ERROR");
+    const QoreStringNode* filter = check_hash_key<QoreStringNode>(xsink, *h, "filter", "LDAP-SEARCH-ERROR");
+    QoreValue n = h->getKeyValue("attributes");
+    ReferenceHolder<QoreListNode> attrl(xsink);
+    if (n) {
+        if (n.getType() == NT_STRING) {
+            attrl = new QoreListNode(autoTypeInfo);
+            attrl->push(n.refSelf(), xsink);
+        }
+        else if (n.getType() == NT_LIST)
+            attrl = n.get<const QoreListNode>()->listRefSelf();
+        else {
+            xsink->raiseException("LDAPCLIENT-SEARCH-ERROR", "the 'attributes' key of the search hash contains type '%s' (expecting 'list' or 'string')", n.getTypeName());
+            return 0;
+        }
+    }
 
-   // get scope
-   n = h->getKeyValue("scope");
-   int scope = n ? n->getAsInt() : 0;
-   if (!scope)
-      scope = LDAP_SCOPE_SUBTREE;
-   
-   return ldap->search(xsink, base, scope, filter, *attrl, false, timeout_ms);
+    // get scope
+    n = h->getKeyValue("scope");
+    int scope = n.getAsBigInt();
+    if (!scope)
+        scope = LDAP_SCOPE_SUBTREE;
+
+    return ldap->search(xsink, base, scope, filter, *attrl, false, timeout_ms);
 }
 
 //! add ldap an entry and attributes
@@ -257,7 +257,7 @@ $ldap.add("uid=temp,ou=people,dc=example,dc=com", ("objectclass": "inetorgperson
     @param dn the distinguished name of the entry to add
     @param attrs a hash of new attributes; the keys are attribute names and the values are the attribute values
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
-    
+
     @note strings are converted to UTF-8 before sending to the server if necessary
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound
@@ -279,9 +279,9 @@ $ldap.modify("uid=temp,ou=people,dc=example,dc=com", ("mod": LDAP_MOD_ADD, "attr
     @param mods a hash or list of hashes of modifications to make; each hash is made up of the following keys:
     - \c mod: a modification action; see @ref ldap_modify_constants for possible values
     - \c attr: the attribute to modify
-    - [\c value]: the value to add or replace 
+    - [\c value]: the value to add or replace
     @param timeout_ms: an optional timeout in milliseconds (1/1000 second); if no timeout is given or a timeout of 0 is given, the default timeout for the LdapClient object is used instead; note that like all %Qore functions and methods taking timeout values, a relative date/time value can be used to make the units clear (i.e. \c 20s = twenty seconds, etc.); integers are treated as values in milliseconds, relative date/time values have a maximum resolution of 1 millisecond
-    
+
     @note strings are converted to UTF-8 before sending to the server if necessary
 
     @throw LDAP-NO-CONTEXT the LDAP session is not connected or the session context is not bound

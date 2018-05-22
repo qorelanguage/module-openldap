@@ -5,7 +5,7 @@ project(qore-ldap-module VERSION 1.2 LANGUAGES C CXX)
 include(CheckCXXCompilerFlag)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-find_package(Qore REQUIRED)
+find_package(Qore 0.9 REQUIRED)
 find_package(OpenLDAP REQUIRED)
 
 # Check for C++11.
@@ -25,7 +25,7 @@ set(CPP_SRC src/openldap-module.cpp)
 set(QPP_SRC src/QC_LdapClient.qpp)
 set(module_name openldap)
 
-qore_wrap_qpp(QPP_CPP_SRC ${QPP_SRC})
+qore_wrap_qpp_value(QPP_CPP_SRC ${QPP_SRC})
 
 add_library(${module_name} SHARED ${QPP_CPP_SRC} ${CPP_SRC})
 target_include_directories(${module_name} PUBLIC ${OpenLDAP_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src)
