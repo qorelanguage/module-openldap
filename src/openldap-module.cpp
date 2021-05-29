@@ -2,7 +2,7 @@
 /*
   openldap Qore module
 
-  Copyright (C) 2012 - 2014 David Nichols, all rights reserved
+  Copyright (C) 2012 - 2021 David Nichols, all rights reserved
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -50,7 +50,7 @@ DLLLOCAL QoreClass* initLdapClientClass(QoreNamespace& ns);
 // modify action map
 ModMap modmap;
 
-static QoreNamespace OLNS("OpenLdap");
+static QoreNamespace OLNS("Qore::OpenLdap");
 
 static QoreStringNode* openldap_module_init() {
    // this also serves to initialize the library in a single-threaded way
