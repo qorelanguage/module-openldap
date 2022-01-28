@@ -356,8 +356,7 @@ public:
             ldap_memfree(apiInfo.ldapai_vendor_name);
             apiInfo.ldapai_vendor_name = 0;
             if (apiInfo.ldapai_extensions) {
-                size_t nextensions = sizeof(apiInfo.ldapai_extensions) / sizeof(apiInfo.ldapai_extensions[0]);
-                for (size_t i = 0; i < nextensions; ++i) {
+                for (size_t i = 0; apiInfo.ldapai_extensions[i]; ++i) {
                     ldap_memfree(apiInfo.ldapai_extensions[i]);
                 }
                 ldap_memfree(apiInfo.ldapai_extensions);
