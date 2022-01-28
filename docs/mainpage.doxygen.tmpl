@@ -112,6 +112,10 @@ ldap.del("uid=test,ou=people,dc=example,dc=com");
 
     @section openldap_release_notes Release Notes
 
+    @subsection openldap_rel121 openldap Module 1.2.1
+    - fixed memory leaks in freeing extension strings
+      (<a href="https://github.com/qorelanguage/qore/issues/4418">issue 4418</a>)
+
     @subsection openldap_rel12 openldap Module 1.2
     - updated build to use the latest %Qore APIs
 
