@@ -29,6 +29,10 @@ qore_wrap_qpp_value(QPP_CPP_SRC ${QPP_SRC})
 
 add_library(${module_name} SHARED ${QPP_CPP_SRC} ${CPP_SRC})
 target_include_directories(${module_name} PUBLIC ${OpenLDAP_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src)
+target_compile_options(${module_name} PRIVATE
+                       $<$<CXX_COMPILER_ID:GNU>:-Wall>
+                       $<$<CXX_COMPILER_ID:Clang>:-Wall>
+                       $<$<CXX_COMPILER_ID:AppleClang>:-Wall>) 
 
 qore_binary_module(${module_name} ${PROJECT_VERSION} ${OpenLDAP_LIB_R})
 
