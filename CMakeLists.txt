@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project(qore-ldap-module VERSION 1.2.1 LANGUAGES C CXX)
+project(qore-openldap-module)
+
+set (VERSION_MAJOR 1)
+set (VERSION_MINOR 2)
+set (VERSION_PATCH 1)
+
+if (${VERSION_PATCH})
+    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+else()
+    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}")
+endif()
+
 
 include(CheckCXXCompilerFlag)
 
@@ -25,13 +36,24 @@ set(CPP_SRC src/openldap-module.cpp)
 set(QPP_SRC src/QC_LdapClient.qpp)
 set(module_name openldap)
 
+set(QORE_DOX_TMPL_SRC
+  docs/mainpage.doxygen.tmpl
+)
+
 qore_wrap_qpp_value(QPP_CPP_SRC ${QPP_SRC})
 
 add_library(${module_name} SHARED ${QPP_CPP_SRC} ${CPP_SRC})
 target_include_directories(${module_name} PUBLIC ${OpenLDAP_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src)
 
-qore_binary_module(${module_name} ${PROJECT_VERSION} ${OpenLDAP_LIB_R})
+qore_binary_module(${module_name} "${PROJECT_VERSION}" ${OpenLDAP_LIB_R})
 
-qore_dist($PROJECT_VERSION})
+qore_dist("${PROJECT_VERSION}")
 
 qore_config_info()
+
+FIND_PACKAGE(Doxygen)
+if (DOXYGEN_FOUND)
+    qore_wrap_dox(QORE_DOX_SRC ${QORE_DOX_TMPL_SRC})
+    add_custom_target(QORE_MOD_DOX_FILES DEPENDS ${QORE_DOX_SRC})
+    add_dependencies(docs QORE_MOD_DOX_FILES)
+endif()
