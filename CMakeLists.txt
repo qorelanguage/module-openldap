@@ -16,6 +16,11 @@ include(CheckCXXCompilerFlag)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(Qore 0.9 REQUIRED)
+
+if (APPLE)
+    set(CMAKE_FIND_FRAMEWORK NEVER)
+endif()
+
 find_package(OpenLDAP REQUIRED)
 
 # Check for C++11.
