@@ -6,7 +6,7 @@ include(CMakePushCheckState)
 include(FindPackageHandleStandardArgs)
 
 find_path(OpenLDAP_INCLUDE_DIR ldap.h)
-find_library(OpenLDAP_LIB_R ldap_r)
+find_library(OpenLDAP_LIB_R NAMES ldap_r ldap)
 
 #make sure it's openldap we have by compiling a test program
 cmake_push_check_state(RESET)
