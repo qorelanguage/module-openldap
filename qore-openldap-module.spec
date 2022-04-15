@@ -52,6 +52,10 @@ BuildRequires: openldap2-devel
 %else
 BuildRequires: openldap-devel
 %endif
+%if 0%{?el7}
+BuildRequires: devtoolset-7-gcc-c++
+%endif
+BuildRequires: cmake >= 3.12.4
 BuildRequires: qore
 
 %description
@@ -77,16 +81,19 @@ openldap module.
 
 %prep
 %setup -q
-./configure RPM_OPT_FLAGS="$RPM_OPT_FLAGS" --prefix=/usr --disable-debug
 
 %build
-%{__make}
+%if 0%{?el7}
+# enable devtoolset7
+. /opt/rh/devtoolset-7/enable
+unset PATH
+%endif
+export CXXFLAGS="%{?optflags}"
+cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_SKIP_RPATH=1 -DCMAKE_SKIP_INSTALL_RPATH=1 -DCMAKE_SKIP_BUILD_RPATH=1 -DCMAKE_PREFIX_PATH=${_prefix}/lib64/cmake/Qore .
+make %{?_smp_mflags}
 
 %install
-rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT/%{module_dir}
-mkdir -p $RPM_BUILD_ROOT/usr/share/doc/qore-openldap-module
-make install DESTDIR=$RPM_BUILD_ROOT
+make DESTDIR=%{buildroot} install %{?_smp_mflags}
 
 %clean
 rm -rf $RPM_BUILD_ROOT

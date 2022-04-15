@@ -374,14 +374,32 @@ find_openldap() {
 
     if test -f "$lib/libldap_r.${SHLIB_SUFFIX}" -o -f "$lib/libldap_r.so"; then
        with_openldap_libs=$lib
+       openldap_libname=ldap_r
     elif test -f "$lib/openldap/libldap_r.${SHLIB_SUFFIX}"; then
        with_openldap_libs=$lib/openldap
+       openldap_libname=ldap_r
     elif test -f "$lib/libldap_r.a"; then
        with_openldap_libs=$lib
        openldap_static=1
+       openldap_libname=ldap_r
     elif test -f "$lib/openldap/libldap_r.a"; then
        with_openldap_libs=$lib/openldap
        openldap_static=1
+       openldap_libname=ldap_r
+    elif test -f "$lib/libldap.${SHLIB_SUFFIX}" -o -f "$lib/libldap.so"; then
+       with_openldap_libs=$lib
+       openldap_libname=ldap
+    elif test -f "$lib/openldap/libldap.${SHLIB_SUFFIX}"; then
+       with_openldap_libs=$lib/openldap
+       openldap_libname=ldap
+    elif test -f "$lib/libldap.a"; then
+       with_openldap_libs=$lib
+       openldap_static=1
+       openldap_libname=ldap
+    elif test -f "$lib/openldap/libldap.a"; then
+       with_openldap_libs=$lib/openldap
+       openldap_static=1
+       openldap_libname=ldap
     fi
 
     if test -z "$with_openldap_libs"; then
@@ -399,80 +417,83 @@ find_openldap() {
 
 # see if we can figure out where the openldap include files and libraries are
 if test "${with_openldap}" != "no"; then
-   AC_MSG_CHECKING([for openldap includes and libraries])
+    AC_MSG_CHECKING([for openldap includes and libraries])
 
-   if test -n "$with_openldap"; then
-      find_openldap "$with_openldap"
-      if test -z "$with_openldap_includes"; then
-	 AC_MSG_ERROR([not found in $with_openldap])
-      fi
-   else
-      for dir in "${lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/openldap /usr/openldap /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
-         find_openldap $dir
-      	 if test -n "$with_openldap_includes"; then
-	    break;
-      	 fi
-      done
-   fi
+    if test -n "$with_openldap"; then
+        find_openldap "$with_openldap"
+        if test -z "$with_openldap_includes"; then
+	        AC_MSG_ERROR([not found in $with_openldap])
+        fi
+    else
+        for dir in "${lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/openldap /usr/openldap /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
+            find_openldap $dir
+      	    if test -n "$with_openldap_includes"; then
+    	        break;
+      	    fi
+        done
+    fi
 
-   if test -n "$with_openldap_includes"; then
-      if test -n "$openldap_static"; then
-	 AC_MSG_RESULT([includes=$with_openldap_includes, libs=$with_openldap_libs (static)])
-      else
-	 AC_MSG_RESULT([includes=$with_openldap_includes, libs=$with_openldap_libs (shared)])
-      fi
-      with_openldap=yes
-   else
-      AC_MSG_ERROR([not found])
-   fi
+    if test -n "$with_openldap_includes"; then
+        if test -n "$openldap_static"; then
+	        AC_MSG_RESULT([includes=$with_openldap_includes, libs=$with_openldap_libs (static)])
+        else
+	        AC_MSG_RESULT([includes=$with_openldap_includes, libs=$with_openldap_libs (shared)])
+        fi
+        with_openldap=yes
+    else
+        AC_MSG_ERROR([not found])
+    fi
 else
-   AC_MSG_ERROR([cannot build module without openldap support])
+    AC_MSG_ERROR([cannot build module without openldap support])
 fi
 
 if test "${with_openldap}" = yes; then
-  if test -n "$with_openldap_includes"; then
-     # only set include path if necessary
-     if test -n "$openldap_app_includes"; then
-          OPENLDAP_CPPFLAGS="-I$with_openldap_includes"
-     fi
-     if test -n "$openldap_static"; then
-          OPENLDAP_LIBS="$with_openldap_libs/libldap_r.a"
-	  #OPENLDAP_LIBS="-L$with_openldap_libs -lldap_r"
-	  if test "$mingw" = yes; then
-	      OPENLDAP_CPPFLAGS="$OPENLDAP_CPPFLAGS -DOPENLDAP_DECLARE_STATIC=1"
-	  fi
-     else
-	if test -n "$openldap_app_libs"; then
-	   OPENLDAP_LIBS="-L$with_openldap_libs -lldap_r"
-	else
-	   OPENLDAP_LIBS="-lldap_r"
-	fi
-     fi
-     # check if C++ compiler can link with OPENLDAP libs
-     SAVE_CPPFLAGS="$CPPFLAGS"
-     SAVE_LDFLAGS="$LDFLAGS"
-     CPPFLAGS="$CPPFLAGS $OPENLDAP_CPPFLAGS"
-     LDFLAGS="$LDFLAGS $OPENLDAP_LIBS"
-     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    if test -z "${openldap_libname}"; then
+        openldap_libname=ldap_r
+    fi
+    if test -n "$with_openldap_includes"; then
+        # only set include path if necessary
+        if test -n "$openldap_app_includes"; then
+            OPENLDAP_CPPFLAGS="-I$with_openldap_includes"
+        fi
+        if test -n "$openldap_static"; then
+            OPENLDAP_LIBS="$with_openldap_libs/lib${openldap_libname}.a"
+            #OPENLDAP_LIBS="-L$with_openldap_libs -l${openldap_libname}"
+            if test "$mingw" = yes; then
+                OPENLDAP_CPPFLAGS="$OPENLDAP_CPPFLAGS -DOPENLDAP_DECLARE_STATIC=1"
+            fi
+        else
+            if test -n "$openldap_app_libs"; then
+                OPENLDAP_LIBS="-L$with_openldap_libs -l${openldap_libname}"
+            else
+                OPENLDAP_LIBS="-l${openldap_libname}"
+            fi
+        fi
+        # check if C++ compiler can link with OPENLDAP libs
+        SAVE_CPPFLAGS="$CPPFLAGS"
+        SAVE_LDFLAGS="$LDFLAGS"
+        CPPFLAGS="$CPPFLAGS $OPENLDAP_CPPFLAGS"
+        LDFLAGS="$LDFLAGS $OPENLDAP_LIBS"
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <ldap.h>
-	 ]],[[
+	        ]],[[
 LDAP* ldp; ldap_initialize(&ldp, "ldaps://localhost:389");
        char *uri
-	]])], openldap_links=yes, openldap_links=no)
+	        ]])], openldap_links=yes, openldap_links=no)
 
-     CPPFLAGS="$SAVE_CPPFLAGS"
-     LDFLAGS="$SAVE_LDFLAGS"
+        CPPFLAGS="$SAVE_CPPFLAGS"
+        LDFLAGS="$SAVE_LDFLAGS"
 
-     if test "$openldap_links" = "no"; then
-        AC_MSG_ERROR([could not compile a test openldap program])
-     else
-        AC_SUBST(OPENLDAP_CPPFLAGS)
-	AC_SUBST(OPENLDAP_LIBS)
-        with_openldap=yes
-     fi
-  else
-     AC_MSG_ERROR([no openldap libraries or includes found])
-  fi
+        if test "$openldap_links" = "no"; then
+            AC_MSG_ERROR([could not compile a test openldap program])
+        else
+            AC_SUBST(OPENLDAP_CPPFLAGS)
+            AC_SUBST(OPENLDAP_LIBS)
+            with_openldap=yes
+        fi
+    else
+        AC_MSG_ERROR([no openldap libraries or includes found])
+    fi
 fi
 
 set_qore_cppflags() {
