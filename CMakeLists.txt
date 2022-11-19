@@ -12,6 +12,10 @@ else()
     set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}")
 endif()
 
+if (POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+endif()
+
 include(CheckCXXCompilerFlag)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
@@ -22,6 +26,11 @@ if (APPLE)
 endif()
 
 find_package(OpenLDAP REQUIRED)
+
+if (DEFINED ENV{OpenLDAP_LIB_R})
+    set(OpenLDAP_LIB_R $ENV{OpenLDAP_LIB_R})
+endif()
+message(STATUS "found lib ${OpenLDAP_LIB_R}")
 
 # Check for C++11.
 include(CheckCXXCompilerFlag)
