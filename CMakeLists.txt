@@ -58,6 +58,10 @@ qore_wrap_qpp_value(QPP_CPP_SRC ${QPP_SRC})
 add_library(${module_name} MODULE ${QPP_CPP_SRC} ${CPP_SRC})
 target_include_directories(${module_name} PUBLIC ${OpenLDAP_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src)
 
+if (DEFINED ENV{DOXYGEN_EXECUTABLE})
+    set(DOXYGEN_EXECUTABLE $ENV{DOXYGEN_EXECUTABLE})
+endif()
+
 qore_external_binary_module(${module_name} "${PROJECT_VERSION}" ${OpenLDAP_LIB_R})
 
 qore_dist("${PROJECT_VERSION}")
