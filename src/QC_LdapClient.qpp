@@ -69,7 +69,7 @@ public:
 
 /** @defgroup ldap_scope_constants LDAP Search Scope Constants
  */
-//@{
+///@{
 namespace OpenLdap;
 
 //! limits the search scope to the object itself
@@ -85,11 +85,11 @@ const LDAP_SCOPE_SUBTREE = LDAP_SCOPE_SUBTREE;
 /** this option is only supported on LDAP servers that support the LDAP Subordinates Search Scope extension
  */
 const LDAP_SCOPE_CHILDREN = LDAP_SCOPE_CHILDREN;
-//@}
+///@}
 
 /** @defgroup ldap_modify_constants LDAP Modify Constants
  */
-//@{
+///@{
 namespace OpenLdap;
 //! for adding an entry
 const LDAP_MOD_ADD = "add";
@@ -99,16 +99,16 @@ const LDAP_MOD_DELETE = "delete";
 
 //! for replacing an entry
 const LDAP_MOD_REPLACE = "replace";
-//@}
+///@}
 
 /** @defgroup ldap_constants LDAP Constants
  */
-//@{
+///@{
 namespace OpenLdap;
 
 //! the default timeout value
 const DefaultTimeout = 60s;
-//@}
+///@}
 
 //! The LdapClient class
 /**
