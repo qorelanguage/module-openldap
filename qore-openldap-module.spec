@@ -14,10 +14,8 @@
 # get *suse release minor version without trailing zeros
 %define os_min %(echo %suse_version|rev|cut -b-2|rev|sed s/0*$//)
 
-%if %suse_version > 1010
+%if %suse_version
 %define dist .opensuse%{os_maj}_%{os_min}
-%else
-%define dist .suse%{os_maj}_%{os_min}
 %endif
 
 %endif
@@ -37,8 +35,8 @@ Summary: OPENLDAP module for Qore
 Name: qore-openldap-module
 Version: %{mod_ver}
 Release: 1%{dist}
-License: LGPL
-Group: Development/Languages
+License: LGPL-2.1-or-later
+Group: Development/Languages/Other
 URL: http://qore.org
 Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 #Source0: %{name}-%{version}.tar.bz2
@@ -46,7 +44,9 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module(abi)%{?_isa} = %{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.9
+BuildRequires: qore-devel >= 1.12.4
+BuildRequires: qore-stdlib >= 1.12.4
+BuildRequires: qore >= 1.12.4
 %if 0%{?suse_version} || 0%{?sles_version}
 BuildRequires: openldap2-devel
 %else
@@ -55,8 +55,8 @@ BuildRequires: openldap-devel
 %if 0%{?el7}
 BuildRequires: devtoolset-7-gcc-c++
 %endif
-BuildRequires: cmake >= 3.12.4
-BuildRequires: qore
+BuildRequires: cmake >= 3.5
+BuildRequires: doxygen
 
 %description
 This package contains the openldap module for the Qore Programming Language.
@@ -86,11 +86,12 @@ openldap module.
 %if 0%{?el7}
 # enable devtoolset7
 . /opt/rh/devtoolset-7/enable
-unset PATH
 %endif
 export CXXFLAGS="%{?optflags}"
 cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_SKIP_RPATH=1 -DCMAKE_SKIP_INSTALL_RPATH=1 -DCMAKE_SKIP_BUILD_RPATH=1 -DCMAKE_PREFIX_PATH=${_prefix}/lib64/cmake/Qore .
 make %{?_smp_mflags}
+make %{?_smp_mflags} docs
+sed -i 's/#!\/usr\/bin\/env qore/#!\/usr\/bin\/qore/' test/q*
 
 %install
 make DESTDIR=%{buildroot} install %{?_smp_mflags}
@@ -104,6 +105,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING.MIT COPYING.LGPL README RELEASE-NOTES AUTHORS
 
 %changelog
+* Sat Dec 17 2022 David Nichols <david@qore.org> 1.2.2
+- updated to use cmake
+
 * Fri Apr 15 2022 David Nichols <david@qore.org> 1.2.2
 - updated to v1.2.2
 
