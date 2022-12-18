@@ -4,7 +4,7 @@ project(qore-openldap-module)
 
 set (VERSION_MAJOR 1)
 set (VERSION_MINOR 2)
-set (VERSION_PATCH 2)
+set (VERSION_PATCH 3)
 
 if (${VERSION_PATCH})
     set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
@@ -19,7 +19,7 @@ endif()
 include(CheckCXXCompilerFlag)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-find_package(Qore 0.9 REQUIRED)
+find_package(Qore 1.12.4 REQUIRED)
 
 if (APPLE)
     set(CMAKE_FIND_FRAMEWORK NEVER)
